@@ -1,0 +1,33 @@
+<view class="page completion-page">
+  <view class="card summary-card">
+    <view class="summary-row">
+      <view>
+        <view class="muted">完工数量</view>
+        <view class="summary-count">{{count}}</view>
+      </view>
+      <view class="range">{{from}} 至 {{to}}</view>
+    </view>
+    <view class="detail-period-tabs">
+      <button wx:for="{{periods}}" wx:key="value" class="detail-period-tab {{period === item.value ? 'active' : ''}}" data-period="{{item.value}}" bindtap="selectPeriod">{{item.label}}</button>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="card empty">正在加载...</view>
+  <view wx:elif="{{!items.length}}" class="card empty">所选时间没有完工工单</view>
+  <scroll-view wx:else scroll-y class="completion-list">
+    <view class="card completion-item" wx:for="{{items}}" wx:key="id">
+      <view class="item-heading">
+        <view class="item-title">{{item.productName}}</view>
+        <view class="tag {{item.statusClass}}">{{item.status}}</view>
+      </view>
+      <view class="muted">工单 {{item.workNo}} / 订单 {{item.orderNo}}</view>
+      <view class="muted">{{item.customerName}} / {{item.planQty}} {{item.quantityUnit}}</view>
+      <view class="muted">完工时间 {{item.completedAtText}}</view>
+      <view class="fulfillment-row">
+        <view class="switch-field"><text>已发货</text><switch color="#156f62" checked="{{item.shipped}}" disabled="{{item.submitting || !item.canUpdateFulfillment || !canManageOrderFulfillment}}" data-order-id="{{item.orderId}}" data-type="shipped" bindchange="updateFulfillment" /></view>
+        <view class="switch-field"><text>已开票</text><switch color="#156f62" checked="{{item.invoiced}}" disabled="{{item.submitting || !item.canUpdateFulfillment || !canManageOrderFulfillment}}" data-order-id="{{item.orderId}}" data-type="invoiced" bindchange="updateFulfillment" /></view>
+      </view>
+      <view wx:if="{{!item.canUpdateFulfillment}}" class="pending-tip">订单尚有未完工工单</view>
+    </view>
+  </scroll-view>
+</view>

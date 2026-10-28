@@ -1,0 +1,51 @@
+<view class="page">
+  <view class="card filters">
+    <picker mode="selector" range="{{customerNames}}" bindchange="onCustomerChange">
+      <view class="filter-value">{{selectedCustomerName}} ›</view>
+    </picker>
+    <picker mode="selector" range="{{processNames}}" bindchange="onProcessChange">
+      <view class="filter-value">{{filters.processName || '全部工序'}} ›</view>
+    </picker>
+    <picker mode="selector" range="{{statusOptions}}" bindchange="onStatusChange">
+      <view class="filter-value">{{filters.status || '全部状态'}} ›</view>
+    </picker>
+    <view class="date-row">
+      <picker mode="date" data-key="from" bindchange="onDateChange">
+        <view class="filter-value">{{filters.from || '开始日期'}} ›</view>
+      </picker>
+      <picker mode="date" data-key="to" bindchange="onDateChange">
+        <view class="filter-value">{{filters.to || '结束日期'}} ›</view>
+      </picker>
+    </view>
+  </view>
+  <block wx:if="{{exceptions.length}}">
+    <view class="card" wx:for="{{exceptions}}" wx:key="id">
+      <view class="row">
+        <view>
+          <view class="name">{{item.type}}</view>
+          <view class="muted">{{item.customerName}} / {{item.workNo}} / {{item.processName}}</view>
+          <view class="muted">{{item.reporterName}}</view>
+        </view>
+        <view class="tag {{item.status === '已解决' ? 'tag-ok' : 'tag-danger'}}">{{item.status}}</view>
+      </view>
+      <view class="desc">{{item.description}}</view>
+      <view class="image-list" wx:if="{{item.images.length}}">
+        <image
+          wx:for="{{item.images}}"
+          wx:for-item="imageUrl"
+          wx:key="*this"
+          src="{{imageUrl}}"
+          mode="aspectFill"
+          data-url="{{imageUrl}}"
+          bindtap="previewImage"
+        />
+      </view>
+      <view class="muted">{{item.createdAtText}}</view>
+      <view wx:if="{{item.status !== '已解决' && canResolve}}">
+        <textarea data-id="{{item.id}}" bindinput="onSolution" placeholder="处理说明"></textarea>
+        <button class="btn" data-id="{{item.id}}" bindtap="resolve">标记已解决</button>
+      </view>
+    </view>
+  </block>
+  <view class="card empty" wx:else>暂无异常</view>
+</view>

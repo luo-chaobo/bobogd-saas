@@ -1,0 +1,17 @@
+.tv-page {
+  min-height: 100vh;
+  background: #071018;
+}
+
+.tip {
+  padding: 14rpx 18rpx;
+  background: #0c4e46;
+  color: #ffffff;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.empty {
+  text-align: center;
+  color: #647086;
+}

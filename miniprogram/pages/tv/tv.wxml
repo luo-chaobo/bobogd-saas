@@ -1,0 +1,10 @@
+<view class="tv-page" wx:if="{{canView}}">
+  <view class="tip">建议横屏查看生产状态监控看板</view>
+  <web-view src="{{tvUrl}}"></web-view>
+</view>
+<view class="page" wx:elif="{{loading}}">
+  <view class="card empty">正在准备生产看板...</view>
+</view>
+<view class="page" wx:else>
+  <view class="card empty">{{error || '当前账号无权查看大屏看板'}}</view>
+</view>

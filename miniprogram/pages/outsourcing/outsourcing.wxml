@@ -1,0 +1,71 @@
+<view class="page outsourcing-page">
+  <view class="page-heading">
+    <view class="title">{{isOwner ? '外协监管' : '委派任务'}}</view>
+    <view class="muted">委派状态与 SaaS 后台实时同步；接收方接受后，在“我的任务”安排生产和报工。</view>
+  </view>
+
+  <view class="card notice" wx:if="{{!enabled || error}}">{{error}}</view>
+  <view class="card empty" wx:elif="{{loading}}">正在同步委派任务…</view>
+  <view wx:elif="{{tasks.length}}">
+    <view class="card outsource-card" wx:for="{{tasks}}" wx:key="taskId">
+      <view class="card-heading">
+        <view>
+          <view class="task-side">{{item.sideLabel}}</view>
+          <view class="outsource-mark" wx:if="{{item.isOutsource}}">外派单 · 产值 {{item.productionValueText}}</view>
+          <view class="task-title">{{item.orderNo}} · {{item.productName}}</view>
+        </view>
+        <view class="task-heading-status">
+          <view class="status-chip">{{item.statusName}}</view>
+          <view class="task-details-toggle" data-id="{{item.taskId}}" bindtap="toggleTask">{{item.expanded ? '收起详情' : '展开详情'}}</view>
+        </view>
+      </view>
+      <view class="task-meta">{{item.companyName}} · {{item.quantityText}} · 交期 {{item.dueDateText}}</view>
+
+      <view wx:if="{{item.expanded}}">
+        <view class="task-meta" wx:if="{{item.snapshot.acceptanceCriteria}}">验收要求：{{item.snapshot.acceptanceCriteria}}</view>
+        <view class="timeline" wx:if="{{item.canShowProgress && item.processes.length}}">
+          <view class="timeline-title">生产进度</view>
+          <view class="process-row" wx:for="{{item.processes}}" wx:for-item="process" wx:key="sequence">
+            <view class="process-marker {{process.status === '已完成' ? 'done' : process.status === '进行中' ? 'active' : ''}}"></view>
+            <view class="process-copy">
+              <view class="process-name">{{process.processName}} <text>{{process.statusText}}</text></view>
+              <view class="muted">{{process.progressText}} · 计划 {{process.dateText}}</view>
+            </view>
+          </view>
+        </view>
+        <view class="muted" wx:elif="{{!item.canShowProgress}}">当前委派权限不包含生产进度。</view>
+
+        <view class="exception-list" wx:if="{{item.canShowExceptions && item.exceptions.length}}">
+          <view wx:for="{{item.exceptions}}" wx:for-item="exception" wx:key="index" class="exception-item">
+            {{exception.type}} · {{exception.status}}：{{exception.description}}
+          </view>
+        </view>
+        <view class="report-proof" wx:if="{{item.reports.length}}">
+          <view class="timeline-title">完工报工照片</view>
+          <view wx:for="{{item.reports}}" wx:for-item="report" wx:key="reportId" class="proof-report">
+            <view class="proof-caption">{{report.processName}} · {{report.reporterName}} · {{report.createdAtText}}</view>
+            <view class="proof-thumbnails">
+              <view wx:for="{{report.images}}" wx:for-item="image" wx:for-index="imageIndex" wx:key="url" class="proof-thumbnail" data-path="{{image.localPath}}" bindtap="previewReportImage">
+                <image wx:if="{{image.localPath}}" src="{{image.localPath}}" mode="aspectFill" />
+                <view wx:elif="{{image.loadFailed}}" class="proof-thumbnail-empty">加载失败</view>
+                <view wx:else class="proof-thumbnail-empty">加载中</view>
+                <text class="proof-count">{{imageIndex + 1}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="task-actions" wx:if="{{item.actions.length}}">
+        <button wx:for="{{item.actions}}" wx:for-item="action" wx:key="status" class="btn mini {{action.disabled ? 'btn-disabled' : action.danger ? 'btn-secondary' : ''}}" data-id="{{item.taskId}}" data-status="{{action.status}}" disabled="{{action.disabled}}" bindtap="updateStatus">{{action.label}}</button>
+      </view>
+    </view>
+  </view>
+  <view class="card empty" wx:else>暂无委派任务</view>
+  <view class="photo-preview-mask" wx:if="{{previewImagePath}}" bindtap="closePhotoPreview">
+    <view class="photo-preview-panel" catchtap="keepPhotoPreview">
+      <image class="photo-preview-image" src="{{previewImagePath}}" mode="aspectFit" />
+      <button class="photo-preview-close" bindtap="closePhotoPreview">关闭</button>
+    </view>
+  </view>
+</view>

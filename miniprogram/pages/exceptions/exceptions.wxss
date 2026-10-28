@@ -1,0 +1,59 @@
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.filter-value {
+  min-height: 72rpx;
+  padding: 0 20rpx;
+  border: 1rpx solid #dce3ee;
+  border-radius: 10rpx;
+  color: #1f2937;
+  line-height: 72rpx;
+  background: #fff;
+}
+
+.date-row {
+  display: contents;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.name {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.desc {
+  margin: 18rpx 0;
+  line-height: 1.6;
+}
+
+.image-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin: 16rpx 0;
+}
+
+.image-list image {
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: 8rpx;
+  background: #edf1f7;
+}
+
+.empty {
+  text-align: center;
+  color: #647086;
+}
+.page {
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+}

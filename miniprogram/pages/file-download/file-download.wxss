@@ -1,0 +1,69 @@
+.download-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 32rpx 24rpx;
+  background: #f5f7fb;
+}
+
+.download-panel {
+  padding: 48rpx 32rpx;
+  border: 1rpx solid #dce3ec;
+  border-radius: 12rpx;
+  background: #ffffff;
+  text-align: center;
+}
+
+.file-type {
+  width: 104rpx;
+  height: 104rpx;
+  margin: 0 auto 24rpx;
+  border-radius: 8rpx;
+  background: #e8f3f1;
+  color: #156f62;
+  font-size: 30rpx;
+  font-weight: 800;
+  line-height: 104rpx;
+}
+
+.file-name {
+  overflow-wrap: anywhere;
+  color: #172033;
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.status-text,
+.success-text,
+.error-text {
+  margin-top: 32rpx;
+  color: #647086;
+  font-size: 26rpx;
+}
+
+.success-text {
+  color: #156f62;
+}
+
+.error-text {
+  color: #b42318;
+}
+
+.download-progress progress {
+  margin-top: 24rpx;
+}
+
+.primary-button {
+  height: 84rpx;
+  margin-top: 36rpx;
+  border-radius: 8rpx;
+  background: #156f62;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 84rpx;
+}
+
+.primary-button::after {
+  border: 0;
+}

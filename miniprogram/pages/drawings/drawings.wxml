@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="summary">共 {{drawings.length}} 个附件</view>
+  <view class="drawing-list" wx:if="{{drawings.length}}">
+    <button class="drawing-item" wx:for="{{drawings}}" wx:key="id" data-index="{{index}}" bindtap="openDrawing">
+      <view class="file-badge">{{item.typeLabel}}</view>
+      <view class="file-info">
+        <view class="file-name">{{item.name}}</view>
+        <view class="file-action">{{item.actionLabel}}</view>
+      </view>
+    </button>
+  </view>
+  <view class="empty" wx:else>当前工单没有附件</view>
+</view>

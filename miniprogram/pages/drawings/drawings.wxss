@@ -1,0 +1,10 @@
+.page { min-height: 100vh; padding: 28rpx; background: #f5f7fb; box-sizing: border-box; }
+.summary { margin-bottom: 20rpx; color: #647086; font-size: 28rpx; }
+.drawing-list { display: flex; flex-direction: column; gap: 20rpx; }
+.drawing-item { width: 100%; min-height: 132rpx; margin: 0; padding: 22rpx; display: flex; align-items: center; gap: 22rpx; text-align: left; background: #fff; border: 1rpx solid #dbe2ec; border-radius: 12rpx; }
+.drawing-item::after { border: 0; }
+.file-badge { width: 92rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; flex: none; color: #156f62; background: #e8f3f1; border-radius: 8rpx; font-size: 24rpx; font-weight: 700; }
+.file-info { min-width: 0; }
+.file-name { color: #172033; font-size: 30rpx; font-weight: 600; overflow-wrap: anywhere; }
+.file-action { margin-top: 8rpx; color: #647086; font-size: 24rpx; }
+.empty { padding: 80rpx 20rpx; text-align: center; color: #647086; }

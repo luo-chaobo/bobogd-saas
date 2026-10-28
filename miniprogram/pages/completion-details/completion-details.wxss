@@ -1,0 +1,130 @@
+.completion-page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.summary-card {
+  flex: 0 0 auto;
+}
+
+.summary-row,
+.item-heading,
+.fulfillment-row,
+.switch-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.summary-count {
+  margin-top: 4rpx;
+  font-size: 52rpx;
+  font-weight: 800;
+}
+
+.range {
+  color: #344054;
+  font-size: 24rpx;
+}
+
+.detail-period-tabs {
+  display: flex;
+  width: 100%;
+  gap: 8rpx;
+  margin-top: 18rpx;
+  overflow: hidden;
+}
+
+.detail-period-tab {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 8rpx 2rpx;
+  background: #f4f6f9;
+  border: 1rpx solid #dfe5ee;
+  border-radius: 6rpx;
+  color: #647086;
+  font-size: 22rpx;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.detail-period-tab.active {
+  background: #e7f3f0;
+  border-color: #156f62;
+  color: #156f62;
+  font-weight: 700;
+}
+
+.completion-list {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.completion-item:last-child {
+  margin-bottom: 0;
+}
+
+.item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 30rpx;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.item-heading {
+  align-items: flex-start;
+}
+
+.item-heading .tag {
+  box-sizing: border-box;
+  flex: 0 0 96rpx;
+  width: 96rpx;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.tag-shipped {
+  background: #e6f1ff;
+  color: #175cd3;
+}
+
+.tag-invoiced {
+  background: #f0eaff;
+  color: #6941c6;
+}
+
+.completion-item .muted {
+  margin-top: 8rpx;
+}
+
+.fulfillment-row {
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #e7ecf3;
+}
+
+.switch-field {
+  flex: 1;
+  color: #344054;
+  font-size: 24rpx;
+}
+
+.pending-tip {
+  margin-top: 12rpx;
+  color: #b35c00;
+  font-size: 22rpx;
+}
+
+.empty {
+  text-align: center;
+  color: #647086;
+}

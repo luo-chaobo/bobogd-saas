@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BOBO SaaS 平台管理</title>
+    <link rel="stylesheet" href="/platform-admin.css?v=20261025-outsourcing-rebate" />
+  </head>
+  <body>
+    <main class="shell">
+      <header><div><p class="eyebrow">BOBO SaaS</p><h1>平台管理工作台</h1><p class="subtitle">统一管理租户、功能套餐与软件灰度发布</p></div><button id="logout" class="button secondary hidden">退出</button></header>
+      <section id="loginPanel" class="panel narrow">
+        <h2>平台管理员登录</h2>
+        <form id="loginForm" class="stack">
+          <label>管理员账号<input name="userId" autocomplete="username" required /></label>
+          <label>管理员密码<input name="password" type="password" autocomplete="current-password" required /></label>
+          <button class="button">登录</button>
+        </form>
+      </section>
+      <section id="appPanel" class="hidden">
+        <nav class="tabs" aria-label="平台管理模块">
+          <button class="tab active" data-panel="tenants">租户管理</button>
+          <button class="tab" data-panel="plans">VIP 套餐</button>
+          <button class="tab" data-panel="rebates">外协产值返还</button>
+          <button class="tab" data-panel="releases">版本发布</button>
+        </nav>
+        <section id="tenantsPanel" class="panel admin-panel">
+          <div class="section-head"><div><h2>租户管理</h2><p class="muted">查找公司、查看授权与数据库状态，打开详情维护套餐。</p></div><div class="toolbar"><button id="createTenantButton" class="button">新建租户</button><button id="refresh" class="button secondary">刷新</button></div></div>
+          <div class="filters">
+            <label>搜索<input id="tenantSearch" type="search" placeholder="公司名称、标识或租户 ID" /></label>
+            <label>公司状态<select id="tenantStatusFilter"><option value="">全部状态</option><option value="active">正常</option><option value="suspended">已暂停</option><option value="closed">已关闭</option></select></label>
+            <label>授权状态<select id="tenantLicenseFilter"><option value="">全部授权</option><option value="active">有效</option><option value="upcoming">未开始</option><option value="expired">已到期/无授权</option></select></label>
+            <label>收款状态<select id="tenantPaymentFilter"><option value="">全部收款</option><option value="paid">已收款</option><option value="unpaid">未收款</option><option value="waived">免费授权</option><option value="not_required">无需收款</option></select></label>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>公司</th><th>租户标识 / ID</th><th>状态</th><th>数据库</th><th>套餐</th><th>授权 / 收款</th><th>操作</th></tr></thead><tbody id="tenantRows"></tbody></table></div>
+          <p id="tenantCount" class="muted"></p>
+        </section>
+        <section id="plansPanel" class="panel admin-panel hidden">
+          <div class="section-head"><div><h2>VIP 套餐与模块</h2><p class="muted">套餐定义默认功能，租户详情允许单户例外覆盖。</p></div></div>
+          <div class="two-column">
+            <form id="planForm" class="subpanel stack">
+              <h3 id="planFormTitle">新建套餐</h3>
+              <input name="planId" type="hidden" />
+              <label>套餐名称<input name="name" maxlength="120" required /></label>
+              <label>说明<input name="description" maxlength="500" /></label>
+              <fieldset><legend>包含模块</legend><div id="planModules" class="check-grid"></div></fieldset>
+              <div class="toolbar"><button class="button">保存套餐</button><button id="resetPlanForm" type="button" class="button secondary">清空</button></div>
+            </form>
+            <section class="subpanel"><h3>已配置套餐</h3><div id="planList" class="card-list"></div></section>
+          </div>
+        </section>
+        <section id="releasesPanel" class="panel admin-panel hidden">
+          <div class="section-head"><div><h2>软件版本与灰度发布</h2><p class="muted">统一部署版本；灰度名单控制相关模块对哪些租户开放，不代表租户运行不同代码。</p></div><span id="currentVersion" class="version-badge"></span></div>
+          <div class="two-column">
+            <form id="releaseForm" class="subpanel stack">
+              <h3>登记发布</h3>
+              <label>版本号<input name="version" placeholder="例如 0.3.0" pattern="[0-9]+[.][0-9]+[.][0-9]+([+-][A-Za-z0-9.-]+)?" required /></label>
+              <label>变更说明<textarea name="notes" rows="3" maxlength="2000"></textarea></label>
+              <fieldset><legend>本次涉及模块</legend><div id="releaseModules" class="check-grid"></div></fieldset>
+              <fieldset><legend>灰度租户（主公司未来机械始终全功能）</legend><div id="releaseTenants" class="check-grid"></div></fieldset>
+              <label>初始状态<select name="status"><option value="gray">灰度中</option><option value="draft">草稿</option><option value="stable">全量稳定</option></select></label>
+              <button class="button">保存发布记录</button>
+            </form>
+            <section class="subpanel"><h3>发布记录</h3><div id="releaseList" class="card-list"></div></section>
+          </div>
+        </section>
+        <section id="rebatesPanel" class="panel admin-panel hidden">
+          <div class="section-head"><div><h2>外协产值与 SaaS 费用返还</h2><p class="muted">仅统计未来机械验收通过且验收时间处于授权周期内的委派产值。已收年费第一档返 50%，第二档返还 100%；授权结束后登记实际线下退款。</p></div><button id="refreshRebates" class="button secondary">刷新</button></div>
+          <div id="rebatePeriods" class="rebate-list"><p class="empty">正在加载授权周期…</p></div>
+        </section>
+      </section>
+      <dialog id="createTenantDialog" class="modal">
+        <form id="createForm" class="stack" novalidate>
+          <div class="modal-head"><div><h2>新建租户</h2><p id="createStepLabel" class="muted">第 1 步，共 2 步 · 公司和管理员</p></div><button type="button" class="icon-button" data-close="createTenantDialog" aria-label="关闭">×</button></div>
+          <section data-create-step="1" class="wizard-step">
+            <div class="grid">
+              <label>公司名称<input name="name" required /></label>
+              <label>公司标识<input name="slug" pattern="[A-Za-z0-9][A-Za-z0-9-]{1,98}[A-Za-z0-9]" required /></label>
+              <label>管理员姓名<input name="adminName" required /></label>
+              <label>管理员手机号<input name="adminPhone" inputmode="tel" required /></label>
+              <label class="full">管理员初始密码<input name="adminPassword" type="password" minlength="8" autocomplete="new-password" required /></label>
+            </div>
+          </section>
+          <section data-create-step="2" class="wizard-step hidden">
+            <div class="grid">
+              <label>VIP 套餐<select name="planId" id="createPlanSelect" required></select></label>
+              <label>年费（元，0 为免费）<input name="annualAmount" type="number" min="0" step="0.01" value="0" required /></label>
+              <label>收款状态<select name="paymentStatus"><option value="unpaid">未收款</option><option value="paid">已收款</option></select></label>
+              <label>授权开始<input name="startsAt" type="date" required /></label>
+              <label>授权结束<input name="endsAt" type="date" required /></label>
+            </div>
+            <p class="hint">开户时会创建该租户的独立业务数据库。后续费用授权可在租户详情中单独追加。</p>
+          </section>
+          <div class="modal-actions"><button id="createBack" type="button" class="button secondary hidden">上一步</button><button id="createNext" type="button" class="button">下一步</button><button id="createSubmit" class="button hidden">创建租户并授权</button></div>
+        </form>
+      </dialog>
+      <dialog id="tenantDetailsDialog" class="modal detail-modal">
+        <div class="modal-head"><div><h2 id="tenantDetailsTitle">租户详情</h2><p id="tenantDetailsSubtitle" class="muted"></p></div><button type="button" class="icon-button" data-close="tenantDetailsDialog" aria-label="关闭">×</button></div>
+        <div id="tenantDetailsBody" class="detail-content"></div>
+      </dialog>
+      <dialog id="resetPasswordDialog" class="modal narrow-modal">
+        <form id="resetPasswordForm" class="stack">
+          <div class="modal-head"><h2 id="resetPasswordTitle">重置管理员密码</h2><button type="button" class="icon-button" data-close="resetPasswordDialog" aria-label="关闭">×</button></div>
+          <label>新密码<input name="password" type="password" minlength="8" autocomplete="new-password" required /></label>
+          <p class="muted">提交后，该管理员的旧密码和已登录会话都会失效。</p>
+          <div class="modal-actions"><button class="button">确认重置</button></div>
+        </form>
+      </dialog>
+      <p id="message" role="status" aria-live="polite"></p>
+    </main>
+    <script src="/platform-admin.js?v=20261027-rebate-unpaid-forecast-v1"></script>
+  </body>
+</html>

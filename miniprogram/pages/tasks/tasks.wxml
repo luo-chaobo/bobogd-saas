@@ -1,0 +1,47 @@
+<view class="page">
+  <view class="task-toolbar">
+    <view class="user-block">
+      <view class="user-role">{{userRoleName}}</view>
+      <view class="user-name">{{userName}}</view>
+    </view>
+    <view class="toolbar-actions">
+      <button class="btn scan-btn" bindtap="scanReport">扫码报工</button>
+      <button class="btn btn-secondary logout-btn" bindtap="logout">退出</button>
+    </view>
+  </view>
+
+  <block wx:if="{{tasks.length}}">
+    <view class="card" wx:for="{{tasks}}" wx:key="id">
+      <view class="task-name">{{item.processName}}{{item.routeType === 'rework' ? '（返工）' : ''}} · {{item.workOrder.productName}}</view>
+      <view class="task-meta-grid">
+        <view class="task-order-meta">{{item.workOrder.workNo}} / 剩余 {{item.remain}} {{item.quantityUnit}}</view>
+        <view class="plan-range">{{item.planRange}}</view>
+        <button wx:if="{{item.drawings.length}}" class="drawing-preview-icon" data-id="{{item.id}}" bindtap="previewDrawing" aria-label="查看全部图纸">图</button>
+        <view wx:else class="drawing-preview-placeholder" aria-hidden="true"></view>
+        <view class="tag task-state {{item.tagClass}}">{{item.status}}</view>
+      </view>
+
+      <view class="progress">
+        <view class="progress-bar" style="width: {{item.progress}}%;"></view>
+      </view>
+
+      <view class="muted">已完成 {{item.completedQty}} / {{item.planQty}} {{item.quantityUnit}}</view>
+      <view class="quality-meta" wx:if="{{item.isQuality}}">
+        <text>当前可送检 {{item.inspectionAvailableQty}} {{item.quantityUnit}}</text>
+        <text wx:if="{{item.pendingReworkQty > 0}}">待返工 {{item.pendingReworkQty}} {{item.quantityUnit}}</text>
+      </view>
+      <view class="actions" wx:if="{{item.status === '待开始'}}">
+        <button class="btn mini" data-id="{{item.id}}" data-status="进行中" bindtap="setStatus">开始</button>
+      </view>
+      <view class="actions" wx:elif="{{item.status === '进行中'}}">
+        <button class="btn btn-secondary mini" data-id="{{item.id}}" data-status="暂停" bindtap="setStatus">暂停</button>
+        <button class="btn mini" data-id="{{item.id}}" bindtap="goReport" disabled="{{!item.canInspect}}">{{item.isQuality ? (item.canInspect ? '去质检' : '等待送检') : '去报工'}}</button>
+      </view>
+      <view class="actions" wx:elif="{{item.status === '暂停'}}">
+        <button class="btn mini" data-id="{{item.id}}" data-status="进行中" bindtap="setStatus">继续</button>
+      </view>
+    </view>
+  </block>
+
+  <view class="card empty" wx:else>当前没有待报工任务</view>
+</view>

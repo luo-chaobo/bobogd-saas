@@ -1,0 +1,10 @@
+<view class="preview-page">
+  <image wx:if="{{isImage && !previewError}}" class="preview-image" src="{{url}}" mode="widthFix" binderror="onPreviewError"></image>
+  <web-view wx:elif="{{!isImage}}" src="{{url}}"></web-view>
+  <view wx:if="{{previewError}}" class="preview-error">
+    <view class="preview-error-title">预览加载失败</view>
+    <view class="preview-error-text">{{previewError}}</view>
+    <view class="preview-error-url">{{url}}</view>
+  </view>
+  <button wx:if="{{downloadUrl}}" class="download-button" bindtap="confirmDownload">下载</button>
+</view>

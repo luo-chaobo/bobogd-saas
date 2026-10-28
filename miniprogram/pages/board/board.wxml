@@ -1,0 +1,47 @@
+<view class="page">
+  <view class="metrics">
+    <view class="card metric">
+      <view class="muted">生产中</view>
+      <view class="num">{{summary.active}}</view>
+    </view>
+    <view class="card metric completion-metric">
+      <view class="completion-heading">
+        <view class="muted">已完成</view>
+        <picker mode="selector" range="{{completionPeriods}}" range-key="label" value="{{completionPeriodIndex}}" bindchange="selectCompletionPeriod">
+          <view class="period-picker-arrow" aria-label="选择完工时间范围">▼</view>
+        </picker>
+      </view>
+      <view class="completion-value-row">
+        <view class="num">{{summary.finished}}</view>
+        <button wx:if="{{viewBoardCustomer}}" class="detail-link" bindtap="openCompletionDetails">查看详情</button>
+      </view>
+    </view>
+    <view class="card metric">
+      <view class="muted">延期</view>
+      <view class="num danger">{{summary.overdue}}</view>
+    </view>
+    <view class="card metric">
+      <view class="muted">异常</view>
+      <view class="num danger">{{summary.exceptions}}</view>
+    </view>
+  </view>
+
+  <button wx:if="{{canViewTv}}" class="btn tv-btn" bindtap="openTv">横屏查看大屏看板</button>
+
+  <view class="card" wx:for="{{workOrders}}" wx:key="id">
+    <view class="row">
+      <view>
+        <view class="name">{{item.productName}}</view>
+        <view class="muted">{{item.workNo}}<text wx:if="{{viewBoardCustomer}}"> / {{item.customer.name}}</text> / 数量 {{item.planQty}} {{item.quantityUnit}} / 交期 {{item.order.dueDate}}</view>
+      </view>
+      <view class="tag {{item.tagClass}}">{{item.status}}</view>
+    </view>
+    <view class="process-track">
+      <view wx:for="{{item.routes}}" wx:for-item="route" wx:key="id" class="process-segment {{route.segmentClass}}">
+        <view class="segment-bar" style="background: {{route.color}};"></view>
+        <view class="segment-name">{{route.processName}}</view>
+      </view>
+    </view>
+    <view class="muted">当前工序：{{item.currentProcess || "-"}} / {{item.progress}}%</view>
+  </view>
+</view>

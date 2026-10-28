@@ -1,0 +1,138 @@
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.metric {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.completion-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.completion-heading .muted {
+  white-space: nowrap;
+}
+
+.completion-value-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.detail-link {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  line-height: 1.4;
+}
+
+.detail-link {
+  flex: 0 0 auto;
+  margin-bottom: 6rpx;
+  color: #156f62;
+  font-size: 22rpx;
+}
+
+.detail-link::after {
+  border: 0;
+}
+
+.period-picker-arrow {
+  box-sizing: border-box;
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  color: #156f62;
+  font-size: 22rpx;
+}
+
+.num {
+  font-size: 48rpx;
+  font-weight: 800;
+  margin-top: 8rpx;
+}
+
+.danger {
+  color: #b42318;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.name {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.tv-btn {
+  margin: 18rpx 0 20rpx;
+}
+
+.process-track {
+  display: flex;
+  gap: 8rpx;
+  overflow-x: auto;
+  padding: 18rpx 0 10rpx;
+  margin-top: 10rpx;
+  white-space: nowrap;
+}
+
+.process-segment {
+  flex: 1 0 88rpx;
+  min-width: 88rpx;
+  text-align: center;
+  opacity: 0.42;
+}
+
+.process-segment.done {
+  opacity: 1;
+}
+
+.process-segment.current {
+  opacity: 1;
+}
+
+.segment-bar {
+  height: 18rpx;
+  border-radius: 999rpx;
+  box-shadow: inset 0 -2rpx 0 rgba(0, 0, 0, 0.12);
+}
+
+.process-segment.todo .segment-bar {
+  filter: grayscale(0.25);
+}
+
+.process-segment.current .segment-bar {
+  border: 4rpx solid #172033;
+  height: 24rpx;
+  box-shadow: 0 0 0 4rpx rgba(21, 111, 98, 0.14);
+}
+
+.segment-name {
+  margin-top: 8rpx;
+  color: #344054;
+  font-size: 20rpx;
+  line-height: 1.15;
+}
+
+.process-segment.current .segment-name {
+  color: #172033;
+  font-weight: 700;
+}
+.page {
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+}

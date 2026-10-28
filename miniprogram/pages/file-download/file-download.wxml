@@ -1,0 +1,24 @@
+<view class="download-page">
+  <view class="download-panel">
+    <view class="file-type">CAD</view>
+    <view class="file-name">{{name || 'CAD 原文件'}}</view>
+
+    <view wx:if="{{status === 'preparing'}}" class="status-text">正在准备下载...</view>
+
+    <view wx:if="{{status === 'downloading'}}" class="download-progress">
+      <view class="status-text">正在下载 {{progress}}%</view>
+      <progress percent="{{progress}}" activeColor="#156f62" backgroundColor="#e7ecf2" stroke-width="8"></progress>
+    </view>
+
+    <view wx:if="{{status === 'success'}}" class="download-result">
+      <view class="success-text">原文件已下载完成</view>
+      <button class="primary-button" bindtap="openLocalFile">本地打开</button>
+      <button class="primary-button" bindtap="shareFile">转发文件</button>
+    </view>
+
+    <view wx:if="{{status === 'error'}}" class="download-result">
+      <view class="error-text">{{error}}</view>
+      <button class="primary-button" bindtap="downloadFile">重新下载</button>
+    </view>
+  </view>
+</view>

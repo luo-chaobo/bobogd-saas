@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/tasks/tasks",
+    "pages/deliveries/deliveries",
+    "pages/board/board",
+    "pages/completion-details/completion-details",
+    "pages/drawings/drawings",
+    "pages/file-preview/file-preview",
+    "pages/file-download/file-download",
+    "pages/tv/tv",
+    "pages/exceptions/exceptions",
+    "pages/outsourcing/outsourcing",
+    "pages/report/report"
+  ],
+  "window": {
+    "navigationBarTitleText": "波波工单",
+    "navigationBarBackgroundColor": "#0c4e46",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f7fb"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#647086",
+    "selectedColor": "#156f62",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/tasks/tasks",
+        "text": "任务"
+      },
+      {
+        "pagePath": "pages/board/board",
+        "text": "看板"
+      },
+      {
+        "pagePath": "pages/exceptions/exceptions",
+        "text": "异常"
+      },
+      {
+        "pagePath": "pages/deliveries/deliveries",
+        "text": "配送"
+      },
+      {
+        "pagePath": "pages/outsourcing/outsourcing",
+        "text": "委派"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

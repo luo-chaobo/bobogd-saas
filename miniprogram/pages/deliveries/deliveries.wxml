@@ -1,0 +1,40 @@
+<view class="page delivery-page">
+  <view class="delivery-toolbar">
+    <view class="delivery-heading">司机配送</view>
+    <button class="logout-button" bindtap="logout">退出</button>
+  </view>
+  <view class="card filter-card">
+    <input value="{{region}}" placeholder="按省、市、区或详细地址筛选" bindinput="onRegion" />
+    <button class="btn" bindtap="search">筛选</button>
+  </view>
+
+  <view class="section-title">待配送平台单（{{available.length}}）</view>
+  <checkbox-group bindchange="selectOrders">
+    <view class="card delivery-available-card" wx:for="{{available}}" wx:key="id">
+      <label class="delivery-card">
+        <checkbox value="{{item.id}}" />
+        <view class="delivery-content">
+          <view class="delivery-order">{{item.orderNo}} · {{item.customerName}}</view>
+          <view class="muted">{{item.region}}</view>
+          <view>{{item.deliveryAddress}}</view>
+        </view>
+      </label>
+      <view class="delivery-contact" data-phone="{{item.customerPhone}}" bindtap="callCustomer">电话：{{item.customerPhone || '暂无'}}</view>
+    </view>
+  </checkbox-group>
+  <button wx:if="{{available.length}}" class="btn" bindtap="startTrip">开始配送（{{selectedIds.length}}）</button>
+  <view wx:else class="card empty">当前没有符合条件的待配送平台单</view>
+
+  <view class="section-title">配送中（{{active.length}}）</view>
+  <view class="card" wx:for="{{active}}" wx:key="id">
+    <view class="delivery-order">{{item.order.orderNo}} · {{item.order.customerName}}</view>
+    <view class="muted">{{item.addressSnapshot.region}}</view>
+    <view>{{item.addressSnapshot.deliveryAddress}}</view>
+    <view class="delivery-contact" data-phone="{{item.order.customerPhone}}" bindtap="callCustomer">电话：{{item.order.customerPhone || '暂无'}}</view>
+    <view class="delivery-actions">
+      <button class="btn btn-secondary" data-id="{{item.orderId}}" bindtap="release">退回</button>
+      <button class="btn btn-secondary" data-id="{{item.orderId}}" data-address="{{item.addressSnapshot.region}} {{item.addressSnapshot.deliveryAddress}}" bindtap="copyAddress">复制地址</button>
+      <button class="btn delivery-complete-action" data-id="{{item.orderId}}" bindtap="complete">拍照并确认送达</button>
+    </view>
+  </view>
+</view>

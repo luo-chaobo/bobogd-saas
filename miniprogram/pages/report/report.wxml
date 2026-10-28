@@ -1,0 +1,93 @@
+<view class="page" wx:if="{{task}}">
+  <view class="card">
+    <view class="title">{{task.processName}} · {{task.workOrder.productName}}</view>
+    <view class="muted">{{task.workOrder.workNo}} / 计划 {{task.planQty}} {{quantityUnit}} / 已完成 {{task.completedQty}} {{quantityUnit}}</view>
+    <view class="quality-summary" wx:if="{{isQuality}}">
+      <view><text>可送检</text><strong>{{task.inspectionAvailableQty}} {{quantityUnit}}</strong></view>
+      <view><text>待返工</text><strong>{{task.pendingReworkQty}} {{quantityUnit}}</strong></view>
+      <view><text>剩余验收</text><strong>{{task.planQty - task.completedQty}} {{quantityUnit}}</strong></view>
+    </view>
+  </view>
+
+  <view class="card">
+    <block wx:if="{{isQuality}}">
+      <view class="section-title">本次检验</view>
+      <view class="field">
+        <text class="label">本次送检数量</text>
+        <input class="text-input" type="number" value="{{form.submittedQty}}" data-key="submittedQty" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <text class="label">本次检验数量（整批全检）</text>
+        <view class="readonly-value">{{form.inspectedQty}} {{quantityUnit}}</view>
+      </view>
+      <view class="quantity-grid">
+        <view class="field">
+          <text class="label">合格数量</text>
+          <input class="text-input" type="number" value="{{form.goodQty}}" data-key="goodQty" bindinput="onInput" />
+        </view>
+        <view class="field">
+          <text class="label">不合格数量</text>
+          <input class="text-input" type="number" value="{{form.badQty}}" data-key="badQty" bindinput="onInput" />
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">处理方式</text>
+        <picker mode="selector" range="{{dispositionOptions}}" bindchange="onDispositionChange">
+          <view class="picker-value">{{form.disposition}} ›</view>
+        </picker>
+      </view>
+      <view class="field" wx:if="{{form.badQty > 0}}">
+        <text class="label">问题工序</text>
+        <picker mode="selector" range="{{issueRouteNames}}" bindchange="onIssueRouteChange">
+          <view class="picker-value">{{issueRouteName || '请选择问题工序'}} ›</view>
+        </picker>
+      </view>
+      <view class="field" wx:if="{{form.disposition === '返工'}}">
+        <text class="label">返回工序</text>
+        <picker mode="selector" range="{{reworkRouteNames}}" bindchange="onReworkRouteChange">
+          <view class="picker-value">{{reworkRouteName || '请选择返工工序'}} ›</view>
+        </picker>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="field">
+        <text class="label">完成数量（{{quantityUnit}}）</text>
+        <input class="text-input" type="number" value="{{form.completedQty}}" data-key="completedQty" bindinput="onInput" />
+      </view>
+      <view class="field">
+        <text class="label">返工数量</text>
+        <input class="text-input" type="number" value="{{form.reworkQty}}" data-key="reworkQty" bindinput="onInput" />
+      </view>
+    </block>
+    <view class="field">
+      <text class="label">备注</text>
+      <textarea class="compact-textarea" value="{{form.note}}" data-key="note" bindinput="onInput" placeholder="现场说明" />
+    </view>
+    <view class="field">
+      <text class="label">现场图片</text>
+      <button class="btn btn-secondary" bindtap="chooseImage">选择/拍摄图片</button>
+      <view class="muted" wx:if="{{imagePath}}">已选择：{{imageName}}</view>
+    </view>
+    <view class="field">
+      <text class="label">{{isQuality ? '问题类型' : '异常类型'}}</text>
+      <input
+        class="text-input"
+        value="{{form.exceptionType}}"
+        data-key="exceptionType"
+        bindinput="onInput"
+        placeholder="{{isQuality ? '例如：尺寸、外观、焊缝' : '没有异常可不填'}}"
+      />
+    </view>
+    <view class="field">
+      <text class="label">{{isQuality ? '问题说明（有不合格品时必填）' : '异常说明'}}</text>
+      <textarea
+        class="compact-textarea"
+        value="{{form.exceptionDescription}}"
+        data-key="exceptionDescription"
+        bindinput="onInput"
+        placeholder="尺寸错误、缺料、设备故障等"
+      />
+    </view>
+    <button class="btn submit-btn" bindtap="submit">{{isQuality ? '提交质检结果' : '提交报工'}}</button>
+  </view>
+</view>
