@@ -2161,6 +2161,7 @@ function historyFilters(url, allowSourceFilters = false) {
     from: normalizeDate(url.searchParams.get("from") || ""),
     to: normalizeDate(url.searchParams.get("to") || ""),
     keyword: String(url.searchParams.get("keyword") || "").trim().toLowerCase(),
+    workOrderId: String(url.searchParams.get("workOrderId") || "").trim(),
     dateType: ["createdAt", "dueDate", "completedAt"].includes(dateType) ? dateType : "createdAt",
     source: allowSourceFilters && ["factory", "platform", "outsourcing"].includes(url.searchParams.get("source")) ? url.searchParams.get("source") : "",
     sourceChannel: allowSourceFilters ? String(url.searchParams.get("sourceChannel") || "").trim() : "",
@@ -2500,6 +2501,7 @@ function workOrderHistoryItems(db, filters, includeCustomerFeedbacks = false, al
         ...(includeCustomerFeedbacks ? { customerFeedbacks } : {}),
       };
     })
+    .filter((item) => !filters.workOrderId || item.id === filters.workOrderId)
     .filter((item) => !filters.customerId || item.customerId === filters.customerId)
     .filter((item) => !filters.status || item.status === filters.status)
     .filter((item) => (!filters.from && !filters.to) || isDateInRange(item[filters.dateType], filters.from, filters.to))

@@ -1,5 +1,25 @@
 # 项目交接
 
+## 2026-10-31 SaaS 数据库试运行与 RDS 迁移计划
+
+- 已将用户决定写入 `docs/commercialization-roadmap.md` 和 `docs/saas-runbook.md`：新 ECS 自建 MySQL 仅用于隔离试运行，正式生产前按停写、备份、迁移、核对、切换、回退方案迁移到 RDS 高可用版。
+- 硬边界：未来机械现有生产程序/数据库不接入、不写入；快照只导入独立 SaaS 租户库。每租户独立库和最小权限账号，数据库不开放公网；备份异地副本及恢复演练是进入生产前置条件。
+- 本次仅更新计划文档，无代码、数据库或服务器变更；未部署、未购买或配置 RDS，备份/恢复、隔离和迁移均未验证。版本仍为 `0.5.0-saas.15`，线上状态未核实。
+
+## 2026-10-29 同步 BOBO 生产总览图表中心
+
+- 只读参考源：`D:\WMR\lcb\未来网站改造\bobo-platform-delivery-worktree`，`feature/platform-delivery` @ `bdaf44a`。已将图表中心入口、近 7/30/90 天订单与报工趋势、排产诊断清单和工单详情查看适配到 SaaS。
+- SaaS 详情经现有租户授权历史接口按 `workOrderId` 精确读取；仅在已有生产总览权限下开放图表中心，不增加菜单或绕过角色权限。
+- 本地 SaaS 版本为 `0.5.0-saas.15`，静态资源缓存标识为 `20261029-chart-center`。
+- 静态检查：`node --check server.js`、`node --check public/app.js`、`git diff --check` 通过。自动化测试未运行。
+- 当前只更新本地 SaaS 仓库；未提交、推送、部署，未修改线上服务、数据库、附件或微信小程序。线上及浏览器交互尚未验收。
+
+## 2026-10-28 本地 BOBO 与 SaaS 仓库版本标识核对
+
+- BOBO 只读源 `D:\WMR\lcb\未来网站改造\bobo-platform-delivery-worktree`：`feature/platform-delivery` @ `538b1b6`，工作区干净。该提交是 SaaS 功能同步参考，不是 SaaS 仓库版本号。
+- SaaS 仓库 `D:\WMR\lcb\未来网站改造\bobo-saas-integration-staging\app`：`master` @ `c28f5c0`；当前工作区有三处未提交文档改动，无代码改动。
+- 本次只校正文档并同步版本对应关系；没有提交、推送、部署，也未访问线上服务或数据。线上版本与本地提交的对应关系仍需逐项文件指纹核验。
+
 ## 2026-10-28 小程序委派报工照片展示
 
 - 委派任务展开详情后，报工照片改为紧凑方形缩略图与数量角标；时间按中国时区显示到分钟。

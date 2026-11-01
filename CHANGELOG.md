@@ -2,6 +2,19 @@
 
 ## 未发布
 
+### 2026-10-29 同步 BOBO 生产总览图表中心
+
+- 从只读 BOBO 基线 `feature/platform-delivery` @ `bdaf44a` 同步生产总览图表中心入口、趋势图、排产诊断和工单详情查看。
+- SaaS 详情通过租户授权的历史工单接口按工单 ID 查询；保留 SaaS 模块权限和租户隔离。
+- SaaS 版本升至 `0.5.0-saas.15`，前端资源缓存标识更新为 `20261029-chart-center`。
+- `node --check server.js`、`node --check public/app.js` 和 `git diff --check` 通过；未运行自动化测试。
+- 仅更新本地 SaaS 源码；未提交、推送或部署，线上服务及微信小程序未验证或修改。
+
+### 2026-10-28 更正本地仓库版本对应关系
+
+- 明确 BOBO 主程序 `538b1b6` 是 SaaS 功能同步参考提交；SaaS 仓库自身当前 HEAD 为 `c28f5c0`。
+- 记录发布说明目前含一处未提交文档更正；未提交、推送或部署。
+
 ### 2026-10-28 波波主版本功能对照
 
 - 对照只读主版本 `bobo-platform-delivery-worktree` @ `538b1b6` 的服务端 API 路由，补齐 SaaS 电视看板按工单读取图纸的接口及看板令牌租户解析。
