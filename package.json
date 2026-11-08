@@ -1,6 +1,6 @@
 {
   "name": "sheet-metal-work-order-cloud-v2",
-  "version": "0.5.0-saas.15",
+  "version": "0.5.0-saas.16",
   "private": true,
   "description": "非标钣金云端小程序工单系统",
   "scripts": {

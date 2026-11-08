@@ -151,6 +151,15 @@ const DISPATCH_BOARD_WRITE_PATHS = new Set([
   "/api/dispatch-board/route-toggle",
   "/api/dispatch-board/route-schedule",
   "/api/dispatch-board/order-due-date",
+  "/api/dispatch-board/report",
+  "/api/dispatch-board/report-upload",
+  "/api/dispatch-board/report-context",
+  "/api/routes/publish-schedule",
+  "/api/report",
+  "/api/route-status",
+  "/api/assign",
+  "/api/routes",
+  "/api/routes/delete",
 ]);
 
 function serializeTenantDelivery(tenantId, task) {
@@ -3999,8 +4008,33 @@ async function handleApiWithTenant(req, res, url) {
       return send(res, 200, { ok: true, order, workOrder, routes });
     }
 
-    const user = currentUser(req, db);
+    const dispatchReportRequest = ["/api/dispatch-board/report", "/api/dispatch-board/report-context", "/api/dispatch-board/report-upload"].includes(url.pathname);
+    let user;
+    if (dispatchReportRequest) {
+      const authorization = String(req.headers.authorization || "");
+      const viewer = viewerFromToken(db, authorization.startsWith("Bearer ") ? authorization.slice(7) : "");
+      if (!viewer || viewer.audience !== "dispatch-board") return send(res, 401, { error: "派工看板身份已失效，请重新打开" });
+      if (!canManage(viewer.user) || !canViewRestrictedBoard(viewer.user)) return send(res, 403, { error: "无权代报工" });
+      user = viewer.user;
+    } else user = currentUser(req, db);
     if (!user) return send(res, 401, { error: "请先登录" });
+    if (req.method === "GET" && url.pathname === "/api/dispatch-board/report-context") {
+      const route = db.routes.find((item) => item.id === url.searchParams.get("routeId"));
+      if (!route) return send(res, 404, { error: "工序不存在" });
+      if (route.status !== "进行中") return send(res, 409, { error: "只有进行中的工序才能代报工，请刷新" });
+      const workOrder = db.workOrders.find((item) => item.id === route.workOrderId);
+      const order = db.orders.find((item) => item.id === workOrder?.orderId);
+      return send(res, 200, {
+        route: enrichRoute(db, route),
+        workNo: workOrder?.workNo || "",
+        productName: workOrder?.productName || "",
+        quantityUnit: normalizeQuantityUnit(order?.quantityUnit),
+        managerName: user.name,
+        issueRoutes: db.routes.filter((item) => item.workOrderId === route.workOrderId && item.processName !== "质检" && item.routeType !== "rework")
+          .sort((a, b) => a.sequence - b.sequence)
+          .map((item) => ({ id: item.id, processName: item.processName, sequence: item.sequence })),
+      });
+    }
     res.viewOrderFinancials = userPermissions(user).viewOrderFinancials;
     if (await handleOutsourcingApi(req, res, url, db, user)) return;
     if (res.writableEnded) return;
@@ -4843,6 +4877,37 @@ async function handleApiWithTenant(req, res, url) {
       return send(res, 200, { ok: true, order, workOrder });
     }
 
+    if (req.method === "POST" && url.pathname === "/api/routes/publish-schedule") {
+      if (!canManage(user.role)) return send(res, 403, { error: "无权发布排期" });
+      const body = await parseBody(req);
+      const workOrder = db.workOrders.find((item) => item.id === body.workOrderId);
+      if (!workOrder) return send(res, 409, { error: "工单不存在，请放弃草稿并刷新" });
+      if (!Array.isArray(body.routes) || !body.routes.length) return send(res, 400, { error: "没有需要发布的排期" });
+      const seen = new Set();
+      const updates = [];
+      for (const item of body.routes) {
+        if (!item || typeof item.routeId !== "string" || seen.has(item.routeId)) return send(res, 400, { error: "工序ID无效或重复" });
+        seen.add(item.routeId);
+        const route = db.routes.find((entry) => entry.id === item.routeId && entry.workOrderId === workOrder.id);
+        if (!route) return send(res, 409, { error: "工序不存在或不属于该工单，请放弃草稿并刷新", routeId: item.routeId });
+        const beforeStart = String(route.plannedStartDate || "");
+        const beforeEnd = String(route.plannedEndDate || route.targetFinishTime?.slice(0, 10) || "");
+        if (beforeStart !== item.expectedStartDate || beforeEnd !== item.expectedEndDate) return send(res, 409, { error: `${route.processName}排期已被修改，请放弃草稿并刷新`, routeId: route.id });
+        const schedule = normalizeRouteSchedule(item.plannedStartDate, item.plannedEndDate);
+        if (schedule.error) return send(res, 400, { error: `${route.processName}：${schedule.error}`, routeId: route.id });
+        updates.push({ route, schedule, beforeStart, beforeEnd });
+      }
+      for (const { route, schedule } of updates) {
+        Object.assign(route, schedule);
+        route.targetFinishTime = schedule.plannedEndDate ? `${schedule.plannedEndDate}T23:00` : "";
+      }
+      appendAudit(db, user, "schedule-publish", "workOrder", workOrder.id, {
+        routes: updates.map(({ route, beforeStart, beforeEnd }) => ({ routeId: route.id, beforeStart, beforeEnd, plannedStartDate: route.plannedStartDate, plannedEndDate: route.plannedEndDate })),
+      });
+      await writeDb(db);
+      return send(res, 200, { ok: true, routes: updates.map(({ route }) => route) });
+    }
+
     if (req.method === "POST" && url.pathname === "/api/assign") {
       if (!canManage(user.role)) return send(res, 403, { error: "无权派工" });
       const body = await parseBody(req);
@@ -4853,18 +4918,19 @@ async function handleApiWithTenant(req, res, url) {
       if (outsourceError) return send(res, 403, { error: outsourceError });
       const assigneePermission = validateAssignee(db, route.processName, body.userId || "");
       if (!assigneePermission.ok) return send(res, 400, { error: assigneePermission.error });
-      const targetFinishTime = body.targetFinishTime ? normalizeTargetFinishTime(body.targetFinishTime) : "";
-      if (body.targetFinishTime && !targetFinishTime) return send(res, 400, { error: "目标完成时间格式不正确" });
-      const schedule = normalizeRouteSchedule(body.plannedStartDate, body.plannedEndDate || targetFinishTime.slice(0, 10));
-      if (schedule.error) return send(res, 400, { error: schedule.error });
+      const hasSchedule = ["plannedStartDate", "plannedEndDate", "targetFinishTime"].some((key) => Object.hasOwn(body, key));
+      if (hasSchedule) {
+        const targetFinishTime = body.targetFinishTime ? normalizeTargetFinishTime(body.targetFinishTime) : "";
+        if (body.targetFinishTime && !targetFinishTime) return send(res, 400, { error: "目标完成时间格式不正确" });
+        const schedule = normalizeRouteSchedule(body.plannedStartDate, body.plannedEndDate || targetFinishTime.slice(0, 10));
+        if (schedule.error) return send(res, 400, { error: schedule.error });
+        Object.assign(route, schedule, { targetFinishTime });
+      }
       route.assignedRole = getProcessRole(route.processName);
       route.assignedTo = body.userId || "";
-      route.targetFinishTime = targetFinishTime;
-      route.plannedStartDate = schedule.plannedStartDate;
-      route.plannedEndDate = schedule.plannedEndDate;
-      appendAudit(db, user, "route-assign", "route", route.id, { assignedTo: route.assignedTo, targetFinishTime, plannedStartDate: route.plannedStartDate, plannedEndDate: route.plannedEndDate });
+      appendAudit(db, user, "route-assign", "route", route.id, { assignedTo: route.assignedTo, targetFinishTime: route.targetFinishTime || "", plannedStartDate: route.plannedStartDate, plannedEndDate: route.plannedEndDate });
       await writeDb(db);
-      return send(res, 200, { ok: true });
+      return send(res, 200, { ok: true, route });
     }
 
     if (req.method === "POST" && url.pathname === "/api/routes") {
@@ -4998,10 +5064,23 @@ async function handleApiWithTenant(req, res, url) {
       return send(res, 200, { ok: true, route });
     }
 
-    if (req.method === "POST" && url.pathname === "/api/report") {
+    if (req.method === "POST" && ["/api/report", "/api/dispatch-board/report"].includes(url.pathname)) {
       const body = await parseBody(req);
       const route = db.routes.find((r) => r.id === body.routeId);
       if (!route) return send(res, 404, { error: "工序不存在" });
+      const proxyReport = url.pathname === "/api/dispatch-board/report";
+      const submissionId = String(body.submissionId || "");
+      const submissionHash = crypto.createHash("sha256").update(JSON.stringify(body)).digest("hex");
+      if (proxyReport) {
+        if (!/^[a-zA-Z0-9-]{16,80}$/.test(submissionId)) return send(res, 400, { error: "报工提交标识无效" });
+        const previous = db.reports.find((item) => item.dispatchSubmissionId === submissionId && item.reporterId === user.id);
+        if (previous) {
+          if (previous.dispatchSubmissionHash !== submissionHash || previous.routeId !== route.id) return send(res, 409, { error: "该提交已处理，请关闭后重新打开报工窗口" });
+          return send(res, 200, { ok: true, route, report: previous, dashboard: buildTvDashboard(db, true, false, ["factory", "platform"].includes(body.source) ? body.source : "all") });
+        }
+        if (route.status !== "进行中" || Number(body.expectedCompletedQty) !== Number(route.completedQty || 0)) return send(res, 409, { error: "工序状态或剩余数量已变化，请关闭后重新打开" });
+        if (route.processName === "质检" && Number(body.expectedInspectionAvailableQty) !== Number(qualityRouteMeta(db, route).inspectionAvailableQty || 0)) return send(res, 409, { error: "可送检数量已变化，请重新打开" });
+      }
       const routePermission = route.processName === "质检" ? "quality" : "progress";
       const outsourceError = await outsourceWorkOrderPermissionError(db, route.workOrderId, routePermission);
       if (outsourceError) return send(res, 403, { error: outsourceError });
@@ -5010,8 +5089,9 @@ async function handleApiWithTenant(req, res, url) {
         const exceptionError = await outsourceWorkOrderPermissionError(db, route.workOrderId, "exceptions");
         if (exceptionError) return send(res, 403, { error: exceptionError });
       }
-      const permission = canReportProcess(user, route);
+      const permission = proxyReport ? { ok: true } : canReportProcess(user, route);
       if (!permission.ok) return send(res, 403, { error: permission.error });
+      if (proxyReport && !canManage(user)) return send(res, 403, { error: "无权代报工" });
       const beforeStatus = route.status;
       const isQuality = route.processName === "质检";
       const reportWorkOrder = db.workOrders.find((item) => item.id === route.workOrderId);
@@ -5113,6 +5193,12 @@ async function handleApiWithTenant(req, res, url) {
         createdAt: route.lastReportedAt,
         ...schedule,
       };
+      if (proxyReport) {
+        report.dispatchSubmissionId = submissionId;
+        report.dispatchSubmissionHash = submissionHash;
+        report.dispatchRouteResult = { ...route };
+        report.source = "dispatch-board";
+      }
       db.reports.push(report);
       let reworkRoute = null;
       if (isQuality && disposition === "返工" && badQty > 0) {
@@ -5195,9 +5281,10 @@ async function handleApiWithTenant(req, res, url) {
         badQty: report.badQty,
         reworkQty: report.reworkQty,
       });
+      if (proxyReport) appendAudit(db, user, "dispatch-report-create", "report", report.id, { routeId: route.id, submissionId, managerId: user.id });
       await writeDb(db);
       setTimeout(() => void processPlatformWebhooks(), 50);
-      return send(res, 200, { ok: true, route, report });
+      return send(res, 200, { ok: true, route, report, ...(proxyReport ? { dashboard: buildTvDashboard(db, true, false, ["factory", "platform"].includes(body.source) ? body.source : "all") } : {}) });
     }
 
     if (req.method === "POST" && url.pathname === "/api/exceptions/resolve") {
@@ -5336,6 +5423,19 @@ async function handleApiWithTenant(req, res, url) {
       db.drawings.push(item);
       db.attachments.push({ ...item, id: id("att"), attachmentType: "drawing" });
       appendAudit(db, user, "drawing-upload", "drawing", item.id, { name: item.name, fileType: item.fileType, orderId: item.orderId, workOrderId: item.workOrderId });
+      await writeDb(db);
+      return send(res, 200, item);
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/dispatch-board/report-upload") {
+      const body = await parseBody(req);
+      const route = db.routes.find((item) => item.id === String(body.routeId || ""));
+      if (!route || route.status !== "进行中") return send(res, 409, { error: "工序状态已变化，请关闭并重新打开报工窗口" });
+      const saved = saveDataUrlFile(body, { prefix: "img", allowImagesOnly: true });
+      if (saved.error) return send(res, 400, { error: saved.error });
+      const item = { id: id("att"), url: saved.url, thumbnailUrl: saved.url, name: saved.originalName, fileType: saved.fileType, contentType: saved.contentType, workOrderId: route.workOrderId, routeId: route.id, attachmentType: "dispatch-report-photo", uploaderId: user.id, createdAt: new Date().toISOString() };
+      db.attachments.push(item);
+      appendAudit(db, user, "dispatch-report-photo-upload", "report-photo", item.id, { name: item.name, routeId: route.id, workOrderId: route.workOrderId });
       await writeDb(db);
       return send(res, 200, item);
     }

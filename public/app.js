@@ -5,11 +5,15 @@ const state = {
   orderSourceChannel: "",
   mobileTab: "tasks",
   data: null,
+  dataRevision: 0,
   previewFiles: [],
   previewIndex: 0,
   previewTitle: "",
   collapsedDispatchWorkOrders: loadDispatchCollapseState(),
   collapsedEmployeeRoles: {},
+  scheduleDrafts: {},
+  schedulePublishing: new Set(),
+  scheduleErrors: {},
   pendingDrawingIds: [],
   editingOrderId: "",
   confirmingPlatformOrderId: "",
@@ -240,7 +244,10 @@ function toast(text) {
 async function refresh() {
   if (!state.user) return render();
   try {
-    state.data = await api("/api/bootstrap");
+    const revision = state.dataRevision;
+    const data = await api("/api/bootstrap");
+    if (revision !== state.dataRevision) return;
+    state.data = data;
     if (state.user.tenantId !== "future-machinery") state.dashboardSource = "all";
     await refreshOutsourcingBadges();
     startOutsourcingBadgePolling();
@@ -507,12 +514,13 @@ function processOptions(data, selected = "") {
 }
 
 function routeScheduleControl(id, startValue, endValue) {
-  const plannedStartDate = String(startValue || "").slice(0, 10);
-  const plannedEndDate = String(endValue || "").slice(0, 10);
+  const draft = state.scheduleDrafts[id];
+  const plannedStartDate = draft ? draft.plannedStartDate : String(startValue || "").slice(0, 10);
+  const plannedEndDate = draft ? draft.plannedEndDate : String(endValue || "").slice(0, 10);
   return `
     <div class="route-schedule">
-      <label><span>计划开始</span><input id="plannedStart_${id}" class="planDateInput" data-route="${id}" type="date" value="${plannedStartDate}" /></label>
-      <label><span>计划结束</span><input id="plannedEnd_${id}" class="planDateInput" data-route="${id}" type="date" value="${plannedEndDate}" /></label>
+      <label><span>计划开始</span><input id="plannedStart_${id}" class="planDateInput" data-route="${id}" type="date" min="0001-01-01" max="9999-12-31" value="${plannedStartDate}" /></label>
+      <label><span>计划结束</span><input id="plannedEnd_${id}" class="planDateInput" data-route="${id}" type="date" min="0001-01-01" max="9999-12-31" value="${plannedEndDate}" /></label>
     </div>
   `;
 }
@@ -520,8 +528,103 @@ function routeScheduleControl(id, startValue, endValue) {
 function routeScheduleValues(routeId) {
   const plannedStartDate = el(`plannedStart_${routeId}`)?.value || "";
   const plannedEndDate = el(`plannedEnd_${routeId}`)?.value || "";
-  return { plannedStartDate, plannedEndDate, targetFinishTime: plannedEndDate ? `${plannedEndDate}T23:00` : "" };
+  return { plannedStartDate, plannedEndDate };
 }
+
+function scheduleDraftsFor(workOrderId) {
+  return Object.values(state.scheduleDrafts).filter((item) => item.workOrderId === workOrderId);
+}
+
+function allowScheduleLeave() {
+  if (state.schedulePublishing.size) { toast("排期正在发布，请稍候"); return false; }
+  if (!Object.keys(state.scheduleDrafts).length) return true;
+  if (!window.confirm("还有未发布排期，离开将丢弃修改，是否继续？")) return false;
+  state.scheduleDrafts = {};
+  state.scheduleErrors = {};
+  return true;
+}
+
+function scheduleToolbar(workOrderId) {
+  const count = scheduleDraftsFor(workOrderId).length;
+  const busy = state.schedulePublishing.has(workOrderId);
+  const error = state.scheduleErrors[workOrderId];
+  return `<span data-schedule-count="${workOrderId}">${count ? `${count}道工序排期未发布` : "排期已发布"}</span><button class="btn compact" data-publish-schedule="${workOrderId}" ${!count || busy ? "disabled" : ""}>${busy ? "发布中…" : "发布排期"}</button><button class="btn secondary compact" data-discard-schedule="${workOrderId}" ${!count || busy ? "disabled" : ""}>放弃修改</button><span class="schedule-error" role="alert">${escapeHtml(error?.message || "")}</span>`;
+}
+
+function editScheduleDraft(input) {
+  const route = state.data?.routes.find((item) => item.id === input.dataset.route);
+  if (!route || state.schedulePublishing.has(route.workOrderId)) return;
+  const original = state.scheduleDrafts[route.id] || { routeId: route.id, workOrderId: route.workOrderId, expectedStartDate: route.plannedStartDate || "", expectedEndDate: String(route.plannedEndDate || route.targetFinishTime || "").slice(0, 10) };
+  const values = routeScheduleValues(route.id);
+  const valid = [el(`plannedStart_${route.id}`), el(`plannedEnd_${route.id}`)].every((control) => control?.checkValidity());
+  if (valid && values.plannedStartDate === original.expectedStartDate && values.plannedEndDate === original.expectedEndDate) delete state.scheduleDrafts[route.id];
+  else state.scheduleDrafts[route.id] = { ...original, ...values, invalid: !valid };
+  delete state.scheduleErrors[route.workOrderId];
+  const toolbar = document.querySelector(`[data-schedule-toolbar="${route.workOrderId}"]`);
+  if (toolbar) toolbar.innerHTML = scheduleToolbar(route.workOrderId);
+}
+
+async function publishSchedule(workOrderId) {
+  if (state.schedulePublishing.has(workOrderId)) return;
+  const drafts = scheduleDraftsFor(workOrderId);
+  if (!drafts.length) return;
+  const invalidDraft = drafts.find((item) => item.invalid);
+  if (invalidDraft) {
+    state.scheduleErrors[workOrderId] = { message: "日期无效，请检查完整日期", routeId: invalidDraft.routeId };
+    render();
+    return;
+  }
+  const card = document.querySelector(`[data-dispatch-work="${workOrderId}"]`);
+  for (const input of card?.querySelectorAll(".planDateInput") || []) if (!input.checkValidity()) { input.reportValidity(); return; }
+  state.schedulePublishing.add(workOrderId);
+  const scrollY = window.scrollY;
+  render();
+  window.scrollTo(0, scrollY);
+  try {
+    const result = await api("/api/routes/publish-schedule", { method: "POST", body: JSON.stringify({ workOrderId, routes: drafts }) });
+    state.dataRevision += 1;
+    for (const updated of result.routes) {
+      const route = state.data.routes.find((item) => item.id === updated.id);
+      if (route) Object.assign(route, updated);
+      for (const workOrder of state.data.workOrders) {
+        const nested = workOrder.routes?.find((item) => item.id === updated.id);
+        if (nested) Object.assign(nested, updated);
+      }
+      delete state.scheduleDrafts[updated.id];
+    }
+    delete state.scheduleErrors[workOrderId];
+    toast("排期已发布，看板将同步更新");
+  } catch (error) {
+    state.scheduleErrors[workOrderId] = { message: error.message, routeId: error.routeId };
+    toast(error.message);
+  } finally {
+    state.schedulePublishing.delete(workOrderId);
+    render();
+    window.scrollTo(0, scrollY);
+  }
+}
+
+async function discardSchedule(workOrderId) {
+  if (state.schedulePublishing.has(workOrderId) || !window.confirm("放弃该工单未发布排期，并重新读取已发布数据？")) return;
+  for (const draft of scheduleDraftsFor(workOrderId)) delete state.scheduleDrafts[draft.routeId];
+  delete state.scheduleErrors[workOrderId];
+  const scrollY = window.scrollY;
+  try { await refresh(); } catch (error) { toast(error.message); render(); }
+  window.scrollTo(0, scrollY);
+}
+
+window.addEventListener("beforeunload", (event) => {
+  if (!Object.keys(state.scheduleDrafts).length && !state.schedulePublishing.size) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+document.addEventListener("click", (event) => {
+  const publish = event.target.closest("[data-publish-schedule]");
+  if (publish) void publishSchedule(publish.dataset.publishSchedule);
+  const discard = event.target.closest("[data-discard-schedule]");
+  if (discard) void discardSchedule(discard.dataset.discardSchedule);
+});
 
 function sortedTechProcesses(data) {
   return data.processes
@@ -1191,7 +1294,7 @@ function customersPage(data) {
 }
 
 function dispatchPage(data) {
-  const workOrders = data.workOrders.filter((item) => item.status !== "已完成");
+  const workOrders = data.workOrders.filter((item) => item.status !== "已完成" || scheduleDraftsFor(item.id).length);
   return `
     <div class="topbar"><h2>派工与工艺路线</h2><button class="btn secondary" data-action="refresh">刷新</button></div>
     <section class="panel">
@@ -1200,7 +1303,7 @@ function dispatchPage(data) {
           (w) => {
             const collapsed = isDispatchCollapsed(w.id);
             return `
-            <div class="card dispatch-work-card ${collapsed ? "collapsed" : ""}">
+            <div class="card dispatch-work-card ${collapsed ? "collapsed" : ""}" data-dispatch-work="${w.id}">
               <div class="task-title dispatch-work-head">
                 <div><h3>${escapeHtml(w.workNo)} ${escapeHtml(w.productName)}</h3><p>${orderSourceBadge(w)}</p><p class="muted">${escapeHtml(w.customer?.name || "")} / 交期 ${escapeHtml(w.order?.dueDate || "")}</p><p class="muted">创建时间 ${escapeHtml(formatDateTime(w.order?.createdAt || w.createdAt))}</p></div>
                 <button class="dispatch-collapse-toggle" data-toggle-dispatch-collapse="${w.id}" title="${collapsed ? "展开工序" : "收起工序"}" aria-label="${collapsed ? "展开工序" : "收起工序"}">${collapsed ? "v" : "^"}</button>
@@ -1210,7 +1313,7 @@ function dispatchPage(data) {
                 ${w.routes
                 .map(
                   (r) => `
-                    <div class="route-row">
+                    <div class="route-row ${state.scheduleErrors[w.id]?.routeId === r.id ? "schedule-conflict" : ""}">
                       <strong>${r.sequence}. ${escapeHtml(r.processName)}</strong>
                       <div><div class="progress"><div style="width:${Math.round((r.completedQty / r.planQty) * 100)}%"></div></div><span class="muted">${r.completedQty}/${r.planQty} ${workOrderQuantityUnit(w)}</span></div>
                       <select data-route="${r.id}" class="assignSelect">
@@ -1228,6 +1331,7 @@ function dispatchPage(data) {
                   <select id="newProcess_${w.id}" data-new-process="${w.id}">${processOptions(data)}</select>
                   <button class="btn" data-add-route="${w.id}">新增工序</button>
                 </div>
+                <div class="actions schedule-toolbar" data-schedule-toolbar="${w.id}">${scheduleToolbar(w.id)}</div>
               </div>`}
             </div>
           `;
@@ -2199,6 +2303,7 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-view]").forEach((btn) => {
     btn.onclick = async (event) => {
+      if (state.view !== btn.dataset.view && !allowScheduleLeave()) return;
       const attentionBadge = btn.querySelector("[data-outsourcing-attention]");
       const attentionStatus = event.target.closest("[data-outsourcing-attention]")?.dataset.outsourcingAttention
         || (btn.dataset.view === "outsourcing" ? attentionBadge?.dataset.outsourcingAttention : "");
@@ -2248,19 +2353,19 @@ function bindEvents() {
   });
   document.querySelectorAll(".assignSelect").forEach((select) => {
     select.onchange = async () => {
-      await api("/api/assign", { method: "POST", body: JSON.stringify({ routeId: select.dataset.route, userId: select.value, ...routeScheduleValues(select.dataset.route) }) });
+      await api("/api/assign", { method: "POST", body: JSON.stringify({ routeId: select.dataset.route, userId: select.value }) });
       toast("派工已更新");
       await refresh();
     };
   });
   document.querySelectorAll(".planDateInput").forEach((input) => {
-    input.onchange = async () => {
-      const assignee = document.querySelector(`.assignSelect[data-route="${input.dataset.route}"]`)?.value || "";
-      await api("/api/assign", { method: "POST", body: JSON.stringify({ routeId: input.dataset.route, userId: assignee, ...routeScheduleValues(input.dataset.route) }) });
-      toast("计划日期已更新");
-      await refresh();
-    };
+    input.oninput = () => editScheduleDraft(input);
+    input.onchange = () => editScheduleDraft(input);
   });
+  for (const workOrderId of state.schedulePublishing) {
+    const card = document.querySelector(`[data-dispatch-work="${workOrderId}"]`);
+    card?.querySelectorAll("button, input, select").forEach((control) => { control.disabled = true; });
+  }
   document.querySelectorAll("[data-add-route]").forEach((btn) => {
     btn.onclick = () => addRoute(btn.dataset.addRoute);
   });
@@ -2612,6 +2717,7 @@ async function deleteUser(userId) {
 
 async function handleAction(action) {
   if (action === "logout") {
+    if (!allowScheduleLeave()) return;
     try { await api("/api/logout", { method: "POST", body: "{}" }); } catch {}
     if (outsourcingBadgeTimer) window.clearInterval(outsourcingBadgeTimer);
     outsourcingBadgeTimer = null;
