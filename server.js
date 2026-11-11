@@ -1913,6 +1913,16 @@ async function readDb() {
   db.processes.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name, "zh-Hans-CN"));
   if (processOrderBeforeSort !== db.processes.map((process) => process.id).join(",")) changed = true;
   if (changed) await writeDb(db);
+  const reopenableOrderIds = new Set(db.orders.filter(canReopenOrder).map((order) => order.id));
+  const activeWorkOrderIds = new Set(db.workOrders
+    .filter((workOrder) => ["生产中", "异常"].includes(workOrder.status) && workOrder.creationStatus !== "pending")
+    .filter((workOrder) => reopenableOrderIds.has(workOrder.orderId))
+    .map((workOrder) => workOrder.id));
+  const reopenedWorkOrders = new Set();
+  for (const route of db.routes) {
+    if (activeWorkOrderIds.has(route.workOrderId) && reopenIncompleteRoute(db, route)) reopenedWorkOrders.add(route.workOrderId);
+  }
+  for (const workOrderId of reopenedWorkOrders) syncWorkOrder(db, workOrderId);
   return db;
 }
 
@@ -2171,6 +2181,7 @@ function historyFilters(url, allowSourceFilters = false) {
     to: normalizeDate(url.searchParams.get("to") || ""),
     keyword: String(url.searchParams.get("keyword") || "").trim().toLowerCase(),
     workOrderId: String(url.searchParams.get("workOrderId") || "").trim(),
+    workNo: String(url.searchParams.get("workNo") || "").trim().toLowerCase(),
     dateType: ["createdAt", "dueDate", "completedAt"].includes(dateType) ? dateType : "createdAt",
     source: allowSourceFilters && ["factory", "platform", "outsourcing"].includes(url.searchParams.get("source")) ? url.searchParams.get("source") : "",
     sourceChannel: allowSourceFilters ? String(url.searchParams.get("sourceChannel") || "").trim() : "",
@@ -2454,6 +2465,8 @@ function attachmentByUrl(db, url) {
 function workOrderHistoryItems(db, filters, includeCustomerFeedbacks = false, allowSourceFilters = false, outsourcingTasks = []) {
   const taskByOrderId = new Map(outsourcingTasks.filter((task) => task.status !== "cancelled").map((task) => [task.ownerOrderId, task]));
   const items = db.workOrders
+    .filter((item) => !filters.workOrderId || item.id === filters.workOrderId)
+    .filter((item) => !filters.workNo || String(item.workNo || "").trim().toLowerCase() === filters.workNo)
     .map((workOrder) => {
       const order = db.orders.find((item) => item.id === workOrder.orderId) || {};
       const outsourcingTask = taskByOrderId.get(order.id);
@@ -2510,7 +2523,6 @@ function workOrderHistoryItems(db, filters, includeCustomerFeedbacks = false, al
         ...(includeCustomerFeedbacks ? { customerFeedbacks } : {}),
       };
     })
-    .filter((item) => !filters.workOrderId || item.id === filters.workOrderId)
     .filter((item) => !filters.customerId || item.customerId === filters.customerId)
     .filter((item) => !filters.status || item.status === filters.status)
     .filter((item) => (!filters.from && !filters.to) || isDateInRange(item[filters.dateType], filters.from, filters.to))
@@ -3305,6 +3317,20 @@ function canonicalRouteStatus(db, route, preferredStatus = route.status) {
     return Number(route.completedQty || 0) > 0 ? "进行中" : "待开始";
   }
   return preferredStatus;
+}
+
+function canReopenOrder(order) {
+  return Boolean(order && !order.shippedAt && !order.invoicedAt && !["已发货", "已开票"].includes(order.status));
+}
+
+function reopenIncompleteRoute(db, route) {
+  const planned = Number(route.planQty);
+  const completed = Number(route.completedQty || 0);
+  if (route.status !== "已完成" || route.routeType === "rework" || !Number.isFinite(planned) || planned <= 0
+    || !Number.isFinite(completed) || completed < 0 || completed >= planned) return false;
+  route.status = canonicalRouteStatus(db, route);
+  route.completedAt = "";
+  return true;
 }
 
 function validateRouteStatusChange(db, route, nextStatus) {
@@ -4775,9 +4801,14 @@ async function handleApiWithTenant(req, res, url) {
         workOrder.planQty = quantity;
       });
       const linkedWorkOrderIds = new Set(linkedWorkOrders.map((workOrder) => workOrder.id));
+      const reopenedWorkOrders = new Set();
       db.routes.forEach((route) => {
-        if (linkedWorkOrderIds.has(route.workOrderId) && route.routeType !== "rework") route.planQty = quantity;
+        if (!linkedWorkOrderIds.has(route.workOrderId) || route.routeType === "rework") return;
+        const increased = quantity > Number(route.planQty);
+        route.planQty = quantity;
+        if (increased && canReopenOrder(order) && reopenIncompleteRoute(db, route)) reopenedWorkOrders.add(route.workOrderId);
       });
+      for (const workOrderId of reopenedWorkOrders) syncWorkOrder(db, workOrderId);
 
       const addedDrawings = [];
       [...new Set(Array.isArray(body.addDrawingIds) ? body.addDrawingIds : [])].forEach((drawingId) => {
@@ -5521,6 +5552,9 @@ async function serveTenantUpload(req, res) {
 const server = http.createServer((req, res) => {
   if (req.url.startsWith("/api/")) {
     const pathname = new URL(req.url, "http://localhost").pathname;
+    if (req.method === "POST" && pathname === "/api/orders/update") {
+      return serializeOrderNumberWrite(() => serializeDispatchBoardWrite(() => handleApi(req, res)));
+    }
     if (req.method === "POST" && ORDER_NUMBER_WRITE_PATHS.has(pathname)) {
       return serializeOrderNumberWrite(() => handleApi(req, res));
     }

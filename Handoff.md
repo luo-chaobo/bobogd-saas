@@ -1,5 +1,11 @@
 # 项目交接
 
+## 2026-11-11 同步部分报工与历史工单精确查询
+
+- 只读源：`bobo-platform-delivery-worktree`，`feature/platform-delivery` @ `ceb850e`。SaaS 已按租户架构适配看板部分报工状态、增加订单数量时重开未完成工序、按工单号精确查询历史；保留租户数据库锁，不直接 cherry-pick 单租户提交。
+- SaaS 工作区版本升至 `0.5.0-saas.17`，看板脚本缓存标识为 `20261111-partial-report`。
+- `node --check server.js`、`node --check public/tv.js`、`git diff --check` 通过；未运行自动化测试。当前仍为未提交工作区，提交前按用户确认的文件清单和提交说明操作。未部署服务器、未修改线上数据库或小程序。
+
 ## 2026-10-31 SaaS 数据库试运行与 RDS 迁移计划
 
 - 已将用户决定写入 `docs/commercialization-roadmap.md` 和 `docs/saas-runbook.md`：新 ECS 自建 MySQL 仅用于隔离试运行，正式生产前按停写、备份、迁移、核对、切换、回退方案迁移到 RDS 高可用版。
