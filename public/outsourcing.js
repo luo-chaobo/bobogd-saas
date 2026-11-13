@@ -28,10 +28,11 @@
     proofLoads: new Map(),
     proofSession: "",
     drawingObjectUrl: "",
+    submittingTask: false,
   };
 
-  const permissionNames = { tasks: "接受任务", progress: "进度", exceptions: "异常", attachments: "附件", quality: "质检", delivery: "交付" };
-  const statusNames = { sent: "待接受", accepted: "生产中", in_progress: "生产中", blocked: "有阻塞", submitted: "已发货，待客户确认", accepted_by_owner: "订单已完成", revision_requested: "返修中", cancelled: "已取消" };
+  const permissionNames = { tasks: "任务承接", progress: "进度", exceptions: "异常", attachments: "附件", quality: "质检与返修", delivery: "发货验收" };
+  const statusNames = { sent: "待外协确认", accepted: "生产中", in_progress: "生产中", blocked: "有阻塞", submitted: "外协已发货，待未来机械验收", accepted_by_owner: "订单已完成", revision_requested: "返修中", cancelled: "已取消" };
   let pendingAttentionStatus = "";
   let ownerArchiveTimer = null;
 
@@ -153,6 +154,7 @@
               <label class="om-field"><span>结束日期</span><input name="endsAt" type="date" required /></label>
               <fieldset class="om-permissions"><legend>允许查看或处理</legend>
                 ${Object.entries(permissionNames).map(([key, name]) => `<label><input type="checkbox" name="permission" value="${key}" ${["tasks", "progress", "exceptions", "attachments"].includes(key) ? "checked" : ""}><span>${name}</span></label>`).join("")}
+                <p class="om-hint om-wide">“任务承接”允许外协确认收到订单；“发货验收”允许外协完成工序后提交发货，供未来机械验收；“质检与返修”允许委托方处理验收和返修。</p>
               </fieldset>
             </div>
             <div class="om-dialog-actions"><button class="om-button om-button-light" type="button" data-close="delegation">取消</button><button class="om-button" type="submit">创建关系</button></div>
@@ -160,7 +162,7 @@
         </dialog>
         <dialog id="om-task-dialog" class="om-dialog">
           <form id="om-task-form" class="om-dialog-form">
-            <div class="om-dialog-head"><div><h2>委派生产任务</h2><p>选择当前有效关系和未报工工序，系统会再次校验可委派数量。</p></div><button class="om-icon-button" type="button" data-close="task" aria-label="关闭">×</button></div>
+            <div class="om-dialog-head"><div><h2>委派生产任务</h2><p>外协确认承接后生产，完成全部工序并发货后提交验收。</p></div><button class="om-icon-button" type="button" data-close="task" aria-label="关闭">×</button></div>
             <div class="om-form-grid">
               <label class="om-field"><span>委派关系</span><select name="delegationId" id="om-delegation-select" required></select></label>
               <label class="om-field"><span>来源订单</span><select name="orderId" id="om-order-select" required></select></label>
@@ -169,6 +171,7 @@
               <label class="om-field"><span>外协交期</span><input name="dueDate" type="date" required></label>
               <fieldset id="om-route-options" class="om-route-options"><legend>整单完整工序链</legend><p class="om-empty">先选择来源订单</p></fieldset>
               <p id="om-quantity-hint" class="om-hint om-wide">新委派将覆盖整张工单、全部计划数量和完整工序链。</p>
+              <p id="om-delivery-permission-hint" class="om-hint om-wide" hidden>当前关系未开启“发货验收”，外协单位将无法提交验收。请先在有效关系中开启该权限。</p>
               <label class="om-field om-wide"><span>验收要求</span><textarea name="acceptanceCriteria" rows="3" maxlength="2000"></textarea></label>
             </div>
             <div class="om-dialog-actions"><button class="om-button om-button-light" type="button" data-close="task">取消</button><button class="om-button" type="submit" id="om-submit-task" disabled>发送外协任务</button></div>
@@ -236,10 +239,10 @@
 
   function stats() {
     const activeRelations = activeDelegations().length;
-    const visibleTasks = state.tasks.filter((item) => taskWithinOwnerSupervision(item));
+    const visibleTasks = ownerTasks();
     const activeTasks = visibleTasks.filter((item) => !["accepted_by_owner", "cancelled"].includes(item.status)).length;
     const attention = visibleTasks.filter((item) => isAttentionStatus(item.status)).length;
-    const cards = [["partners", "外协单位", state.partners.length], ["relations", "有效委派关系", activeRelations], ["processing", "处理中任务", activeTasks], ["attention", "待跟进", attention]];
+    const cards = [["partners", "已开通租户", state.partners.length], ["relations", "有效委派关系", activeRelations], ["processing", "处理中任务", activeTasks], ["attention", "待跟进", attention]];
     return `<section class="om-stats" aria-label="外协概况">
       ${cards.map(([target, label, count]) => `<button type="button" class="om-stat" data-stat="${target}" aria-label="${label}，${count}，点击查看对应内容"><span>${label}</span><strong>${count}</strong><small>查看 →</small></button>`).join("")}
     </section>`;
@@ -299,7 +302,7 @@
 
   function unitsView() {
     return `<section class="om-master-detail">
-      <aside class="om-unit-panel"><div class="om-panel-title"><div><h2>外协单位</h2><span>${state.partners.length} 家已开通单位</span></div><button type="button" class="om-button om-button-light om-button-small" data-open="delegation">建立关系</button></div>
+      <aside class="om-unit-panel"><div class="om-panel-title"><div><h2>外协单位</h2><span>${state.partners.length} 家已开通租户</span></div><button type="button" class="om-button om-button-light om-button-small" data-open="delegation">建立关系</button></div>
         <label class="om-search"><span class="om-sr-only">搜索外协单位</span><input id="om-unit-search" type="search" placeholder="搜索单位名称" value="${esc(state.unitSearch)}"></label>
         <div id="om-unit-list" class="om-unit-list">${unitList()}</div></aside>
       ${state.unitView === "relations" ? activeRelationsView() : selectedUnitView()}
@@ -365,13 +368,13 @@
 
   function taskActions(task) {
     const choices = task.side === "partner" ? {
-      sent: [["接受任务", "accepted", "tasks"], ["拒绝任务", "cancelled", "tasks"]],
+      sent: [["确认承接", "accepted", "tasks"], ["拒绝任务", "cancelled", "tasks"]],
       accepted: [["提交验收", "submitted", "delivery"], ["报告阻塞", "blocked", "exceptions"]],
       in_progress: [["提交验收", "submitted", "delivery"], ["报告阻塞", "blocked", "exceptions"]],
       blocked: [["解除阻塞", "in_progress", "progress"], ["提交验收", "submitted", "delivery"]],
       revision_requested: [["继续生产", "in_progress", "progress"], ["提交验收", "submitted", "delivery"], ["报告阻塞", "blocked", "exceptions"]],
     }[task.status] || [] : ["sent", "accepted", "in_progress"].includes(task.status) && !(task.production?.completedQty > 0) ? [["取消委派", "cancelled", "tasks"]]
-      : task.status === "submitted" ? [["客户已确认，完成委派", "accepted_by_owner", "quality"], ["要求返修", "revision_requested", "quality"]] : [];
+      : task.status === "submitted" ? [["确认验收并完成订单", "accepted_by_owner", "quality"], ["要求返修", "revision_requested", "quality"]] : [];
     const permissions = new Set(task.permissions || []);
     const allowed = choices.filter(([, , permission]) => task.side !== "partner" || (task.relationActive && permissions.has(permission)));
     const routes = task.production?.routes || [];
@@ -427,7 +430,7 @@
     const title = state.root.querySelector("#om-title");
     const subtitle = state.root.querySelector("#om-subtitle");
     if (title) title.textContent = owner ? "外协监管" : "委派任务";
-    if (subtitle) subtitle.textContent = owner ? "按外协单位管理委派关系、生产任务和交付进度。" : "查看和处理分配给本公司的委派任务。";
+    if (subtitle) subtitle.textContent = owner ? "按外协单位管理委派关系、生产任务和交付进度。" : "确认承接后安排生产；全部工序完成并发货后提交验收。";
     const headActions = state.root.querySelector(".om-header-actions");
     if (headActions && owner) headActions.innerHTML = `<button class="om-button om-button-light" type="button" data-om-action="refresh">刷新</button><button class="om-button" type="button" data-open="delegation">建立外协关系</button>`;
     content.innerHTML = `${state.error ? `<div class="om-error" role="alert">${esc(state.error)} <button type="button" class="om-text-button" data-om-action="refresh">重试</button></div>` : ""}${owner ? stats() : ""}${tabs()}${owner && state.tab === "units" ? unitsView() : tasksView()}`;
@@ -486,14 +489,14 @@
     const select = state.root.querySelector("#om-delegation-select");
     select.replaceChildren();
     const today = todayText();
-    const available = state.delegations.filter((item) => item.status === "active" && item.startsAt <= today && item.endsAt >= today && (item.permissions || []).includes("tasks") && (!preferredPartner || item.partnerTenantId === preferredPartner));
+    const available = state.delegations.filter((item) => item.status === "active" && item.startsAt <= today && item.endsAt >= today && (item.permissions || []).includes("tasks") && (item.permissions || []).includes("delivery") && (!preferredPartner || item.partnerTenantId === preferredPartner));
     for (const item of available) {
       const option = document.createElement("option");
       option.value = item.delegationId;
       option.textContent = `${state.tenantNames[item.partnerTenantId] || item.partnerTenantId} · ${item.endsAt}`;
       select.append(option);
     }
-    if (!available.length && preferredPartner) renderDelegationOptions();
+    state.root.querySelector("#om-delivery-permission-hint").hidden = available.length > 0;
   }
 
   function selectedOrder() {
@@ -585,7 +588,9 @@
     renderDelegationOptions(partnerId);
     const dialog = state.root.querySelector("#om-task-dialog");
     if (!state.root.querySelector("#om-delegation-select").options.length) {
-      state.message = "请先为外协单位建立有效关系并开启任务授权。";
+      state.message = partnerId
+        ? "所选外协单位没有当前有效且同时开启“任务承接”和“发货验收”的关系。"
+        : "请先建立当前有效关系，并同时开启“任务承接”和“发货验收”权限。";
       render();
       return;
     }
@@ -637,6 +642,11 @@
   }
 
   async function submitTask(form) {
+    if (state.submittingTask) return;
+    state.submittingTask = true;
+    const submitButton = form.querySelector("#om-submit-task");
+    submitButton.disabled = true;
+    submitButton.textContent = "正在发送…";
     const values = formObject(form);
     const order = selectedOrder();
     values.routeIds = (order?.workOrder?.routes || []).filter((route) => route.routeType !== "rework").map((route) => route.id);
@@ -649,13 +659,24 @@
       state.root.querySelector("#om-task-dialog").close();
       state.message = `已发送任务 ${result.partnerWorkNo}`;
       await refresh();
-    } catch (error) { state.message = error.message; render(); }
+    } catch (error) {
+      state.message = `${error.message}；正在同步最新委派状态，请检查订单是否已创建。`;
+      render();
+      await refresh();
+    } finally {
+      state.submittingTask = false;
+      const button = state.root?.querySelector("#om-submit-task");
+      if (button) {
+        button.textContent = "发送外协任务";
+        updateQuantityLimit();
+      }
+    }
   }
 
   async function updateTaskStatus(taskId, status) {
     try {
       await api(`/api/outsourcing/tasks/${encodeURIComponent(taskId)}/status`, { method: "POST", body: JSON.stringify({ status }) });
-      const messages = { accepted: "已接受委派任务", cancelled: "任务已取消", in_progress: "阻塞已解除，可继续报工", blocked: "阻塞情况已提交给委托方", submitted: "已提交验收，等待未来机械确认", accepted_by_owner: "已确认客户验收，委派任务完成", revision_requested: "已要求外协单位返修" };
+      const messages = { accepted: "已确认承接委派任务", cancelled: "任务已取消", in_progress: "阻塞已解除，可继续报工", blocked: "阻塞情况已提交给委托方", submitted: "外协已提交发货，等待未来机械验收", accepted_by_owner: "已确认验收，订单已完成", revision_requested: "已要求外协单位返修" };
       state.message = messages[status] || "任务状态已更新";
       await refresh();
       window.boboRefreshOutsourcingBadges?.();

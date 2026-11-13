@@ -68,8 +68,8 @@
       <button class="btn btn-secondary" bindtap="chooseImage">选择/拍摄图片</button>
       <view class="muted" wx:if="{{imagePath}}">已选择：{{imageName}}</view>
     </view>
-    <view class="field">
-      <text class="label">{{isQuality ? '问题类型' : '异常类型'}}</text>
+    <view class="field" wx:if="{{isQuality}}">
+      <text class="label">问题类型</text>
       <input
         class="text-input"
         value="{{form.exceptionType}}"
@@ -78,8 +78,8 @@
         placeholder="{{isQuality ? '例如：尺寸、外观、焊缝' : '没有异常可不填'}}"
       />
     </view>
-    <view class="field">
-      <text class="label">{{isQuality ? '问题说明（有不合格品时必填）' : '异常说明'}}</text>
+    <view class="field" wx:if="{{isQuality}}">
+      <text class="label">问题说明（有不合格品时必填）</text>
       <textarea
         class="compact-textarea"
         value="{{form.exceptionDescription}}"
@@ -88,6 +88,12 @@
         placeholder="尺寸错误、缺料、设备故障等"
       />
     </view>
-    <button class="btn submit-btn" bindtap="submit">{{isQuality ? '提交质检结果' : '提交报工'}}</button>
+    <view class="field" wx:if="{{!isQuality && task.workOrder.source !== 'saas-outsourcing'}}">
+      <text class="label">现场异常说明</text>
+      <textarea class="compact-textarea exception-description" value="{{form.exceptionDescription}}" data-key="exceptionDescription" bindinput="onInput" placeholder="尺寸错误、缺料、设备故障等" />
+      <button class="btn exception-only-btn" bindtap="submitException" disabled="{{!canSubmitException || exceptionSubmitting}}" loading="{{exceptionSubmitting}}">仅异常上报</button>
+    </view>
+    <button wx:if="{{canStartProduction}}" class="btn btn-secondary" bindtap="startCurrentProduction">{{task.status === '暂停' ? '继续生产' : '开始生产'}}</button>
+    <button wx:if="{{showRegularSubmit}}" disabled="{{exceptionSubmitting}}" class="btn submit-btn" bindtap="submit">{{isQuality ? '提交质检结果' : '提交报工'}}</button>
   </view>
 </view>

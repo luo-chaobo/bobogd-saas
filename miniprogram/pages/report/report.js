@@ -81,6 +81,8 @@ Page({
     task: null,
     quantityUnit: "件",
     isQuality: false,
+    exceptionSubmitting: false,
+    canSubmitException: false,
     imagePath: "",
     imageName: "",
     dispositionOptions: ["无需处理", "返工", "让步接收", "报废"],
@@ -167,7 +169,8 @@ Page({
       }
       const workOrder = data.workOrders.find((w) => w.id === route.workOrderId) || {};
       const unit = quantityUnit(workOrder.order?.quantityUnit);
-      if (route.status === "待开始") {
+      const isOutsource = workOrder.source === "saas-outsourcing";
+      if (route.status === "待开始" && (route.processName === "质检" || isOutsource)) {
         wx.showModal({
           title: `${route.processName || "该工序"}尚未开始`,
           content: [
@@ -190,7 +193,7 @@ Page({
         return; 
       }
       const statusError = reportStatusError(route);
-      if (statusError) {
+      if (statusError && (isOutsource || route.processName === "质检" || !["待开始", "暂停"].includes(route.status))) {
         showStatusError(statusError);
         return;
       }
@@ -213,6 +216,9 @@ Page({
         task: { ...route, workOrder },
         quantityUnit: unit,
         isQuality,
+        showRegularSubmit: isQuality || route.status === "进行中",
+        canStartProduction: !isQuality && !isOutsource && ["待开始", "暂停"].includes(route.status),
+        canSubmitException: Boolean(String(this.data.form.exceptionDescription || "").trim()),
         issueRoutes: reworkRoutes,
         reworkRoutes,
         issueRouteNames: reworkRoutes.map((item) => `${item.sequence}. ${item.processName}`),
@@ -239,6 +245,7 @@ Page({
   onInput(e) {
     const key = e.currentTarget.dataset.key;
     const updates = { [`form.${key}`]: e.detail.value };
+    if (key === "exceptionDescription") updates.canSubmitException = Boolean(String(e.detail.value || "").trim());
     if (this.data.isQuality && key === "submittedQty") {
       updates["form.inspectedQty"] = e.detail.value;
       updates["form.goodQty"] = e.detail.value;
@@ -310,7 +317,26 @@ Page({
       wx.hideLoading();
     }
   },
+  async submitException() {
+    const description = String(this.data.form.exceptionDescription || "").trim();
+    if (!description || this.data.exceptionSubmitting || this.data.isQuality || this.data.task?.workOrder?.source === "saas-outsourcing") return;
+    this.setData({ exceptionSubmitting: true });
+    try {
+      const images = await this.uploadSelectedImage();
+      await api.request("/api/route-exceptions", { method: "POST", data: { routeId: this.data.routeId, description, images } });
+      this.setData({ "form.exceptionDescription": "", canSubmitException: false, imagePath: "", imageName: "" });
+      wx.showToast({ title: "异常已上报", icon: "success" });
+    } catch (err) {
+      wx.showToast({ title: err.message || "上报失败", icon: "none" });
+    } finally {
+      this.setData({ exceptionSubmitting: false });
+    }
+  },
+  startCurrentProduction() {
+    this.startProduction(this.data.routeId);
+  },
   async submit() {
+    if (this.data.exceptionSubmitting) return;
     try {
       if (!this.data.task || this.data.task.status !== "进行中") {
         wx.showToast({ title: "只有进行中的工序才能报工", icon: "none" });

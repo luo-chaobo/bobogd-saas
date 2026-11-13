@@ -63,6 +63,7 @@ function extractRouteToken(result) {
 Page({
   data: {
     tasks: [],
+    pendingStatus: {},
     userRoleName: "",
     userName: ""
   },
@@ -112,6 +113,7 @@ Page({
             progress,
             remain: Math.max(0, Number(r.planQty || 0) - completedQty),
             isQuality: r.processName === "质检",
+            isOutsource: workOrder.source === "saas-outsourcing",
             canInspect: r.processName !== "质检" || Number(r.inspectionAvailableQty || 0) > 0,
             tagClass: tagClass(r.status),
             planRange: planRange(r.plannedStartDate, r.plannedEndDate || r.targetFinishTime)
@@ -160,7 +162,8 @@ Page({
   },
   goReport(e) {
     const route = this.data.tasks.find((item) => item.id === e.currentTarget.dataset.id);
-    if (!route || route.status !== "进行中") {
+    const canReportExceptionOnly = route && !route.isQuality && !route.isOutsource && ["待开始", "暂停"].includes(route.status);
+    if (!route || (route.status !== "进行中" && !canReportExceptionOnly)) {
       wx.showToast({ title: "请先开始生产再报工", icon: "none" });
       return;
     }
@@ -219,6 +222,11 @@ Page({
           content: data.processPermissionError || data.permissionError || "当前账号无权操作此工序",
           showCancel: false
         });
+        return;
+      }
+
+      if (route.processName !== "质检" && route.workOrder?.source !== "saas-outsourcing" && ["待开始", "暂停"].includes(route.status)) {
+        this.openScannedReport(data.routeId || route.id);
         return;
       }
 
@@ -316,15 +324,21 @@ Page({
     });
   },
   async setStatus(e) {
+    const routeId = e.currentTarget.dataset.id;
+    const status = e.currentTarget.dataset.status;
+    if (this.data.pendingStatus[routeId]) return;
+    this.setData({ [`pendingStatus.${routeId}`]: true });
     try {
       const result = await api.request("/api/route-status", {
         method: "POST",
-        data: { routeId: e.currentTarget.dataset.id, status: e.currentTarget.dataset.status }
+        data: { routeId, status }
       });
       this.updateTaskStatus(result.route);
-      wx.showToast({ title: e.currentTarget.dataset.status === "暂停" ? "已暂停" : "已开始" });
+      wx.showToast({ title: status === "暂停" ? "已暂停" : "已开始" });
     } catch (err) {
       wx.showToast({ title: err.message, icon: "none" });
+    } finally {
+      this.setData({ [`pendingStatus.${routeId}`]: false });
     }
   },
   updateTaskStatus(route) {

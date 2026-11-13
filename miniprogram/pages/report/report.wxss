@@ -63,3 +63,6 @@
   height: 150rpx;
   min-height: 150rpx;
 }
+.exception-description { height: 220rpx; min-height: 220rpx; }
+.exception-only-btn { margin: 12rpx 0 24rpx; background: #7c3aed; color: #fff; }
+.exception-only-btn[disabled] { background: #e5e7eb; color: #9ca3af; }

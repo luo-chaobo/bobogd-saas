@@ -1398,8 +1398,10 @@ async function handleOutsourcingApi(req, res, url, db, user) {
     const body = await parseBody(req);
     const delegation = await store.findDelegation(String(body.delegationId || ""));
     if (!delegation || delegation.ownerTenantId !== context.tenantId || delegation.status !== "active"
-      || !delegation.permissions.includes("tasks") || delegation.startsAt > todayInShanghai()
-      || delegation.endsAt < todayInShanghai()) return send(res, 403, { error: "当前委派关系不允许创建任务" });
+      || !delegation.permissions.includes("tasks") || !delegation.permissions.includes("delivery")
+      || delegation.startsAt > todayInShanghai() || delegation.endsAt < todayInShanghai()) {
+      return send(res, 403, { error: "当前委派关系需同时开启任务承接和发货验收权限，才能创建外协任务" });
+    }
     const order = db.orders.find((item) => item.id === body.orderId);
     const workOrder = order && db.workOrders.find((item) => item.orderId === order.id);
     if (!order || !workOrder) return send(res, 404, { error: "订单或工单不存在" });
@@ -3303,7 +3305,7 @@ function routeQuantityComplete(route) {
 function routeHasOpenIssue(db, route) {
   if (route.routeType === "rework") return false;
   return (db.exceptions || []).some((item) =>
-    item.status !== "已解决"
+    item.status !== "已解决" && item.source !== "exception-only"
     && [item.routeId, item.issueRouteId, item.qualityRouteId, item.reworkRouteId].includes(route.id)
   );
 }
@@ -3488,7 +3490,21 @@ function buildTvDashboard(db, showCustomer = false, includeDrawings = false, sou
       const meta = routeMeta(db, route);
       const progress = Math.min(100, Math.round((Number(route.completedQty || 0) / Number(route.planQty || 1)) * 100));
       const qualityIssueActive = openQualityExceptions.some((item) => item.qualityRouteId === route.id || item.issueRouteId === route.id);
-      return { ...route, ...meta, progress, qualityIssueActive };
+      const fieldException = db.exceptions
+        .filter((item) => item.routeId === route.id && item.source === "exception-only" && item.status !== "已解决")
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+      const fieldExceptionReporter = fieldException
+        ? db.users.find((item) => item.id === fieldException.reporterId)?.name || "历史员工"
+        : "";
+      return {
+        ...route,
+        ...meta,
+        progress,
+        qualityIssueActive,
+        fieldExceptionActive: Boolean(fieldException),
+        fieldExceptionTime: fieldException?.createdAt || "",
+        fieldExceptionReporter,
+      };
     });
     const customer = showCustomer ? wo.customer : { id: wo.customer?.id || wo.order?.customerId || "" };
     const { drawings, ...safeWorkOrder } = wo;
@@ -5093,6 +5109,38 @@ async function handleApiWithTenant(req, res, url) {
       });
       await writeDb(db);
       return send(res, 200, { ok: true, route });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/route-exceptions") {
+      const body = await parseBody(req);
+      const route = db.routes.find((item) => item.id === body.routeId);
+      if (!route) return send(res, 404, { error: "工序不存在" });
+      const outsourceError = await outsourceWorkOrderPermissionError(db, route.workOrderId, "exceptions");
+      if (outsourceError) return send(res, 403, { error: outsourceError });
+      const permission = canReportProcess(user, route);
+      if (!permission.ok) return send(res, 403, { error: permission.error });
+      if (route.processName === "质检" || route.status === "已完成") {
+        return send(res, 409, { error: "该工序不能仅异常上报" });
+      }
+      const description = String(body.description || "").trim();
+      if (!description) return send(res, 400, { error: "请填写异常说明" });
+      const item = {
+        id: id("e"),
+        workOrderId: route.workOrderId,
+        routeId: route.id,
+        type: "现场异常",
+        description,
+        status: "待处理",
+        reporterId: user.id,
+        createdAt: new Date().toISOString(),
+        images: Array.isArray(body.images) ? body.images : [],
+        source: "exception-only",
+      };
+      db.exceptions.push(item);
+      syncWorkOrder(db, route.workOrderId);
+      appendAudit(db, user, "exception-only-create", "exception", item.id, { routeId: route.id, description });
+      await writeDb(db);
+      return send(res, 200, { ok: true, item });
     }
 
     if (req.method === "POST" && ["/api/report", "/api/dispatch-board/report"].includes(url.pathname)) {

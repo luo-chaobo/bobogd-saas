@@ -58,6 +58,7 @@ function esc(value) {
 }
 
 function statusNodeClass(route, order) {
+  if (route.fieldExceptionActive) return "field-exception";
   const completed = Number(route.completedQty || 0);
   const partiallyReported = completed > 0 && completed < Number(route.planQty);
   if (route.status === "已完成" && !partiallyReported) return "done";
@@ -105,6 +106,7 @@ function metric(label, value, cls = "") {
 
 function orderBadges(order) {
   const badges = [];
+  if (order.routes.some((route) => route.fieldExceptionActive)) badges.push({ text: "异常", cls: "field-exception" });
   if (order.order?.orderOrigin === "platform") badges.push({ text: "平台单", cls: "platform" });
   if (order.isOutsourced) badges.push({ text: "外派单", cls: "outsource" });
   if (order.dueLevel === "overdue") badges.push({ text: "延期", cls: "delay" });
@@ -163,8 +165,8 @@ function orderRow(order, mobileMode = false) {
     return `
       <div class="route-node ${nodeClass} ${route.lastReportScheduleStatus || ""}${dispatchClickable ? " dispatch-clickable" : ""}"${dispatchClickable ? ` data-route-id="${esc(route.id)}" data-route-status="${esc(route.status)}"` : ""}>
         <div class="circle${planClass}${scheduleEditable ? " dispatch-schedule" : ""}"${scheduleEditable ? ` data-dispatch-schedule data-route-id="${esc(route.id)}" data-route-name="${esc(route.processName)}" data-route-start="${esc(route.plannedStartDate || "")}" data-route-end="${esc(route.plannedEndDate || "")}" data-work-no="${esc(order.workNo)}"` : ""}>${esc(planText)}</div>
-        <div class="route-name">${esc(route.processName)}</div>
-        <div class="route-report"><span class="route-time">${route.lastReportTime ? shortDay(route.lastReportTime) : "--"}</span><span class="route-worker">${esc(route.reporterName || "")}</span></div>
+        <div class="route-name">${esc(route.processName)}${route.fieldExceptionActive && route.scheduleOverdue ? '<span class="field-overdue">超期</span>' : ""}</div>
+        <div class="route-report"><span class="route-time">${route.fieldExceptionActive ? shortDay(route.fieldExceptionTime) : route.lastReportTime ? shortDay(route.lastReportTime) : "--"}</span><span class="route-worker">${esc(route.fieldExceptionActive ? route.fieldExceptionReporter : route.reporterName || "")}</span></div>
       </div>
     `;
   }).join("");

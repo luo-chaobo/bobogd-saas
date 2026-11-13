@@ -31,14 +31,16 @@
         <text wx:if="{{item.pendingReworkQty > 0}}">待返工 {{item.pendingReworkQty}} {{item.quantityUnit}}</text>
       </view>
       <view class="actions" wx:if="{{item.status === '待开始'}}">
-        <button class="btn mini" data-id="{{item.id}}" data-status="进行中" bindtap="setStatus">开始</button>
+        <button class="btn mini" data-id="{{item.id}}" data-status="进行中" bindtap="setStatus" loading="{{pendingStatus[item.id]}}" disabled="{{pendingStatus[item.id]}}">{{pendingStatus[item.id] ? '处理中' : '开始'}}</button>
+        <button wx:if="{{!item.isQuality && !item.isOutsource}}" class="btn btn-secondary mini" data-id="{{item.id}}" bindtap="goReport" disabled="{{pendingStatus[item.id]}}">报异常</button>
       </view>
       <view class="actions" wx:elif="{{item.status === '进行中'}}">
-        <button class="btn btn-secondary mini" data-id="{{item.id}}" data-status="暂停" bindtap="setStatus">暂停</button>
-        <button class="btn mini" data-id="{{item.id}}" bindtap="goReport" disabled="{{!item.canInspect}}">{{item.isQuality ? (item.canInspect ? '去质检' : '等待送检') : '去报工'}}</button>
+        <button class="btn btn-secondary mini" data-id="{{item.id}}" data-status="暂停" bindtap="setStatus" loading="{{pendingStatus[item.id]}}" disabled="{{pendingStatus[item.id]}}">{{pendingStatus[item.id] ? '处理中' : '暂停'}}</button>
+        <button class="btn mini" data-id="{{item.id}}" bindtap="goReport" disabled="{{!item.canInspect || pendingStatus[item.id]}}">{{item.isQuality ? (item.canInspect ? '去质检' : '等待送检') : '去报工'}}</button>
       </view>
       <view class="actions" wx:elif="{{item.status === '暂停'}}">
-        <button class="btn mini" data-id="{{item.id}}" data-status="进行中" bindtap="setStatus">继续</button>
+        <button class="btn mini" data-id="{{item.id}}" data-status="进行中" bindtap="setStatus" loading="{{pendingStatus[item.id]}}" disabled="{{pendingStatus[item.id]}}">{{pendingStatus[item.id] ? '处理中' : '继续'}}</button>
+        <button wx:if="{{!item.isQuality && !item.isOutsource}}" class="btn btn-secondary mini" data-id="{{item.id}}" bindtap="goReport" disabled="{{pendingStatus[item.id]}}">报异常</button>
       </view>
     </view>
   </block>
